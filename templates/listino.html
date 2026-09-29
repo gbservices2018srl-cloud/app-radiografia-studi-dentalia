@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Listino servizi{% endblock %}
+{% block content %}
+<h1>Listino servizi</h1>
+<p class="meta" style="margin:-8px 0 16px">Collega ogni servizio a un'area della radiografia: nei preventivi verrà suggerito quando quell'area è critica o da migliorare.</p>
+
+<div class="lista">
+  {% for s in servizi %}
+  <details class="card servizio {{ '' if s.attivo else 'spento' }}">
+    <summary>
+      <div>
+        <span class="prev-num">{{ s.codice or '—' }}</span>
+        <strong>{{ s.descrizione }}</strong>
+        <p class="meta">{% for a in aree if a.id == s.area_id %}Area: {{ a.nome }}{% else %}Nessuna area{% endfor %}{% if not s.attivo %} · <b>Disattivato</b>{% endif %}</p>
+      </div>
+      <span class="prezzo">{{ s.prezzo | euro }}<small>{{ s.unita }}</small></span>
+    </summary>
+    <form method="post" class="form-servizio">
+      <input type="hidden" name="id" value="{{ s.id }}">
+      {% include "_campi_servizio.html" %}
+      <div class="azioni-riga"><button class="btn" type="submit">Salva</button></div>
+    </form>
+    <form method="post" action="{{ url_for('listino_stato', sid=s.id) }}" style="margin-top:8px">
+      <button class="btn secondario" type="submit">{{ 'Disattiva' if s.attivo else 'Riattiva' }}</button>
+    </form>
+  </details>
+  {% endfor %}
+</div>
+
+<section class="card">
+  <h2>Nuovo servizio</h2>
+  <form method="post" class="form-servizio">
+    {% set s = None %}
+    {% include "_campi_servizio.html" %}
+    <button class="btn grande" type="submit">Aggiungi al listino</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: radiografia-studio
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL        # email del primo amministratore (la inserisci su Render)
+        sync: false
+      - key: ADMIN_PASSWORD     # password del primo amministratore (la inserisci su Render)
+        sync: false
+      - key: ADMIN_NOME
+        value: Amministratore
+      - key: DATABASE_URL
+        fromDatabase:
+          name: radiografia-db
+          property: connectionString
+
+databases:
+  - name: radiografia-db
+    plan: free

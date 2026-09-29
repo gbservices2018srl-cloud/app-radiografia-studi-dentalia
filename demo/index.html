@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e7490">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Radiografia">
+<title>Radiografia Studio</title>
+<style>
+:root{--bg:#f4f7f9;--card:#fff;--testo:#1e293b;--tenue:#64748b;--bordo:#e2e8f0;--primario:#0e7490;--primario-2:#155e75;--critico:#dc2626;--medio:#d97706;--buono:#16a34a;--area:rgba(14,116,144,.22);--on:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f172a;--card:#1e293b;--testo:#e2e8f0;--tenue:#94a3b8;--bordo:#334155;--primario:#22d3ee;--primario-2:#67e8f9;--area:rgba(34,211,238,.2);--on:#0f172a}}
+:root[data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--testo:#e2e8f0;--tenue:#94a3b8;--bordo:#334155;--primario:#22d3ee;--primario-2:#67e8f9;--area:rgba(34,211,238,.2);--on:#0f172a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--testo);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+.top{position:sticky;top:0;z-index:10;background:#0e7490;color:#fff;padding:max(12px,env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.top b{font-size:1.05rem}.top button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:8px 12px;font:inherit;font-size:.9rem}
+main{max-width:720px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+h1{font-size:1.5rem;margin:4px 0 14px}h2{font-size:1.1rem;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--bordo);border-radius:16px;padding:16px;margin-bottom:12px}
+.meta{color:var(--tenue);font-size:.88rem;margin:4px 0 0}
+label.campo{display:block;color:var(--tenue);font-size:.88rem;margin-bottom:12px}
+input,textarea{width:100%;margin-top:5px;padding:13px 12px;border:1px solid var(--bordo);border-radius:10px;font:inherit;font-size:16px;background:var(--card);color:var(--testo)}
+input:focus,textarea:focus{outline:2px solid var(--primario);outline-offset:0;border-color:transparent}
+.btn{display:block;width:100%;background:var(--primario);color:var(--on);border:0;border-radius:12px;padding:15px;font:inherit;font-weight:600;font-size:1rem;text-align:center;cursor:pointer}
+.btn.sec{background:transparent;color:var(--primario);border:1.5px solid var(--primario)}
+.btn.peric{background:transparent;color:var(--critico);border:1.5px solid var(--critico)}
+.btn:disabled{opacity:.4}
+.barra-basso{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--bordo);padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;z-index:10}
+.barra-basso .btn{flex:1}.barra-basso .btn.sec{flex:.6}
+.cliente{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer}
+.tondo{flex:none;width:50px;height:50px;border-radius:50%;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:1.05rem}
+.critico{--c:var(--critico)}.medio{--c:var(--medio)}.buono{--c:var(--buono)}
+.tondo,.pill,.riemp,.indice{background:var(--c)}
+.vuoto{text-align:center;padding:32px 16px;color:var(--tenue)}
+.passi{display:flex;gap:4px;margin:0 0 14px}.passi i{flex:1;height:5px;border-radius:3px;background:var(--bordo)}.passi i.on{background:var(--primario)}
+.passo-tit{color:var(--tenue);font-size:.85rem;margin:0}
+.domanda{padding:14px 0;border-top:1px solid var(--bordo)}.domanda:first-of-type{border-top:0;padding-top:4px}
+.domanda p{margin:0 0 10px;line-height:1.35}
+.scala{display:flex;justify-content:space-between;gap:6px}
+.scala button{flex:1;max-width:60px;aspect-ratio:1;border-radius:50%;border:1.5px solid var(--bordo);background:var(--card);color:var(--testo);font:inherit;font-weight:700;font-size:1.1rem}
+.scala button.sel{background:var(--primario);border-color:var(--primario);color:var(--on)}
+.estremi{display:flex;justify-content:space-between;font-size:.72rem;color:var(--tenue);margin-top:6px}
+.testa{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.indice{color:#fff;border-radius:14px;padding:8px 14px;text-align:center;flex:none}.indice b{display:block;font-size:1.7rem}.indice small{font-size:.7rem}
+svg.radar{width:100%;height:auto;display:block}
+.g{fill:none;stroke:var(--bordo)}.ax{stroke:var(--bordo)}.ob{fill:none;stroke:var(--tenue);stroke-width:1.5;stroke-dasharray:6 6}
+.st{fill:var(--area);stroke:var(--primario);stroke-width:3}.pt{stroke:var(--card);stroke-width:3;fill:var(--c)}
+.lb{font-size:25px;font-weight:600;fill:var(--testo)}.lv{font-weight:800;fill:var(--primario)}.tk{font-size:16px;fill:var(--tenue)}
+.leg{text-align:center;color:var(--tenue);font-size:.82rem;margin:6px 0 0}
+.riga{margin:10px 0}.riga-t{display:flex;justify-content:space-between;font-size:.93rem;margin-bottom:5px}
+.barra{height:10px;background:var(--bordo);border-radius:5px;overflow:hidden}.riemp{height:100%}
+.azione{border-left:4px solid var(--c);padding:10px 12px;margin:10px 0;background:var(--bg);border-radius:0 10px 10px 0}
+.azione-t{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{color:#fff;font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:99px}
+.azione ul{margin:8px 0 0;padding-left:18px}.azione li{margin:5px 0;line-height:1.35}
+.stack{display:grid;gap:10px;margin-top:6px}
+.avviso{font-size:.8rem;color:var(--tenue);text-align:center;margin-top:18px}
+@media (min-width:700px){.lb{font-size:17px}.tk{font-size:12px}}
+@media print{.top,.barra-basso,.no-print{display:none!important}body,html{background:#fff;color:#000}main{padding:0}.card{border:0;break-inside:avoid}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.lb{font-size:17px}}
+</style>
+</head>
+<body>
+<header class="top"><b>Radiografia Studio</b><button id="btn-top" type="button"></button></header>
+<main id="app"></main>
+<div class="barra-basso" id="barra"></div>
+
+<script>
+const DATI = {"aree": [{"id": "clinica", "breve": "Clinica", "nome": "Qualità clinica", "domande": [{"id": "cl1", "testo": "Esistono protocolli clinici scritti e condivisi per i trattamenti principali?"}, {"id": "cl2", "testo": "I piani di trattamento sono documentati e spiegati al paziente in modo standard?"}, {"id": "cl3", "testo": "Vengono monitorati esiti, complicanze e rifacimenti?"}, {"id": "cl4", "testo": "Il team clinico segue formazione continua pianificata?"}], "azioni": ["Redigere protocolli scritti per le 5 prestazioni più frequenti.", "Introdurre un registro esiti/rifacimenti con revisione mensile.", "Pianificare un calendario annuale di formazione ECM per il team."]}, {"id": "marketing", "breve": "Marketing", "nome": "Marketing e acquisizione", "domande": [{"id": "mk1", "testo": "Lo studio sa da quali canali arrivano i nuovi pazienti?"}, {"id": "mk2", "testo": "Il sito web e la scheda Google sono aggiornati e curati?"}, {"id": "mk3", "testo": "Esiste un budget e un piano marketing annuale?"}, {"id": "mk4", "testo": "Vengono raccolte attivamente recensioni dei pazienti?"}], "azioni": ["Tracciare la fonte di ogni nuovo paziente già dalla prima telefonata.", "Ottimizzare la scheda Google Business e avviare la richiesta sistematica di recensioni.", "Definire un piano marketing annuale con budget e obiettivi misurabili."]}, {"id": "esperienza", "breve": "Paziente", "nome": "Esperienza paziente", "domande": [{"id": "ep1", "testo": "I tempi di attesa in sala sono generalmente sotto i 10 minuti?"}, {"id": "ep2", "testo": "Viene misurata la soddisfazione del paziente (questionari, NPS)?"}, {"id": "ep3", "testo": "Il primo contatto telefonico segue uno script / standard?"}, {"id": "ep4", "testo": "Esiste un sistema di richiamo e follow-up post trattamento?"}], "azioni": ["Introdurre una survey NPS automatica dopo ogni prestazione.", "Scrivere uno script di accoglienza telefonica e formare la segreteria.", "Attivare richiami automatici (igiene, controlli) via SMS/WhatsApp."]}, {"id": "economico", "breve": "Economia", "nome": "Gestione economica", "domande": [{"id": "ec1", "testo": "Lo studio conosce il costo orario della poltrona?"}, {"id": "ec2", "testo": "Esiste un controllo di gestione mensile (ricavi, costi, margini)?"}, {"id": "ec3", "testo": "Il tasso di accettazione dei preventivi è misurato?"}, {"id": "ec4", "testo": "Sono disponibili soluzioni di finanziamento per il paziente?"}], "azioni": ["Calcolare il costo orario poltrona e rivedere il listino di conseguenza.", "Impostare un cruscotto mensile con 5-6 KPI economici.", "Monitorare il tasso di accettazione preventivi e formare chi li presenta."]}, {"id": "team", "breve": "Team", "nome": "Team e risorse umane", "domande": [{"id": "tm1", "testo": "Ruoli e mansioni di ciascuno sono chiari e scritti?"}, {"id": "tm2", "testo": "Si tengono riunioni di team regolari?"}, {"id": "tm3", "testo": "Il turnover del personale è basso?"}, {"id": "tm4", "testo": "Esistono obiettivi individuali o sistemi incentivanti?"}], "azioni": ["Formalizzare un mansionario per ogni ruolo.", "Introdurre una riunione di team settimanale di 30 minuti con ordine del giorno.", "Definire obiettivi individuali e colloqui di valutazione semestrali."]}, {"id": "organizzazione", "breve": "Agenda", "nome": "Organizzazione e agenda", "domande": [{"id": "or1", "testo": "Il tasso di saturazione delle poltrone è misurato?"}, {"id": "or2", "testo": "Gli appuntamenti mancati (no-show) sono sotto controllo?"}, {"id": "or3", "testo": "L'agenda è pianificata per tipologia di prestazione?"}, {"id": "or4", "testo": "Magazzino e ordini dei materiali seguono una procedura?"}], "azioni": ["Misurare saturazione poltrone e no-show ogni settimana.", "Introdurre promemoria automatici 48h e 24h prima dell'appuntamento.", "Riorganizzare l'agenda a blocchi per tipologia di prestazione."]}, {"id": "digitale", "breve": "Digitale", "nome": "Tecnologia e digitale", "domande": [{"id": "dg1", "testo": "Lo studio usa un gestionale integrato (agenda, cartella, fatturazione)?"}, {"id": "dg2", "testo": "La cartella clinica è completamente digitale?"}, {"id": "dg3", "testo": "Il paziente può prenotare o comunicare online?"}, {"id": "dg4", "testo": "Vengono usate tecnologie diagnostiche digitali (scanner, CBCT)?"}], "azioni": ["Valutare un gestionale unico che integri agenda, cartella e fatturazione.", "Attivare prenotazione online e canale di messaggistica con i pazienti.", "Pianificare investimenti in diagnostica digitale con analisi di ritorno."]}, {"id": "compliance", "breve": "Compliance", "nome": "Compliance e sicurezza", "domande": [{"id": "co1", "testo": "Privacy (GDPR) e consensi informati sono gestiti correttamente?"}, {"id": "co2", "testo": "Le procedure di sterilizzazione sono tracciate?"}, {"id": "co3", "testo": "Gli adempimenti su sicurezza e radioprotezione sono aggiornati?"}, {"id": "co4", "testo": "Esiste un calendario delle scadenze normative?"}], "azioni": ["Eseguire un audit GDPR e aggiornare i moduli di consenso.", "Introdurre la tracciabilità completa dei cicli di sterilizzazione.", "Creare uno scadenzario normativo con responsabile designato."]}], "scala": [[1, "Per nulla / Assente"], [2, "Poco"], [3, "In parte"], [4, "Abbastanza"], [5, "Completamente / Ottimo"]]};
+const AREE = DATI.aree, SCALA = DATI.scala;
+const TOT = AREE.reduce((s, a) => s + a.domande.length, 0);
+
+/* ---------- memoria (localStorage se disponibile, altrimenti in memoria) ---------- */
+const mem = {};
+function leggi(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return k in mem ? mem[k] : d; } }
+function scrivi(k, v) { mem[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+/* ---------- algoritmo (uguale a scoring.py: sostituibile) ---------- */
+function calcola(risposte) {
+  const p = {};
+  for (const a of AREE) {
+    const v = a.domande.map(d => risposte[d.id]).filter(x => x);
+    p[a.id] = v.length ? Math.round((v.reduce((s, x) => s + x, 0) / v.length - 1) / 4 * 100) : 0;
+  }
+  return p;
+}
+function livello(s) { return s < 50 ? ["Critico", "critico"] : s < 75 ? ["Da migliorare", "medio"] : ["Buono", "buono"]; }
+const media = p => { const v = Object.values(p); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const oggi = d => new Date(d).toLocaleDateString("it-IT");
+
+/* ---------- stato ---------- */
+let stato = { vista: "home" };
+const $app = document.getElementById("app"), $barra = document.getElementById("barra"), $top = document.getElementById("btn-top");
+
+function vai(v) { stato = v; render(); window.scrollTo(0, 0); }
+
+function render() {
+  const comm = leggi("rs_commerciale", null);
+  if (!comm) return vistaProfilo();
+  if (stato.vista === "home") return vistaHome(comm);
+  if (stato.vista === "form") return vistaForm();
+  if (stato.vista === "risultato") return vistaRisultato(stato.id);
+  if (stato.vista === "profilo") return vistaProfilo(comm);
+}
+
+/* ---------- profilo commerciale ---------- */
+function vistaProfilo(c) {
+  $top.textContent = c ? "Chiudi" : ""; $top.style.visibility = c ? "visible" : "hidden";
+  $top.onclick = () => vai({ vista: "home" });
+  $app.innerHTML = `
+    <h1>${c ? "Il tuo profilo" : "Benvenuto"}</h1>
+    <p class="meta" style="margin-bottom:14px">${c ? "Questi dati compaiono sui report." : "Inserisci i tuoi dati di commerciale: compariranno sui report consegnati ai clienti."}</p>
+    <div class="card">
+      <label class="campo">Nome e cognome *<input id="p-nome" value="${esc(c?.nome)}" autocomplete="name"></label>
+      <label class="campo">Email<input id="p-email" type="email" value="${esc(c?.email)}" autocomplete="email"></label>
+      <label class="campo" style="margin:0">Telefono<input id="p-tel" type="tel" value="${esc(c?.telefono)}" autocomplete="tel"></label>
+    </div>`;
+  $barra.innerHTML = `<button class="btn" id="p-salva">Salva</button>`;
+  document.getElementById("p-salva").onclick = () => {
+    const nome = document.getElementById("p-nome").value.trim();
+    if (!nome) return document.getElementById("p-nome").focus();
+    scrivi("rs_commerciale", { nome, email: document.getElementById("p-email").value.trim(), telefono: document.getElementById("p-tel").value.trim() });
+    vai({ vista: "home" });
+  };
+}
+
+/* ---------- elenco clienti ---------- */
+function vistaHome(comm) {
+  $top.textContent = comm.nome.split(" ")[0]; $top.style.visibility = "visible";
+  $top.onclick = () => vai({ vista: "profilo" });
+  const lista = leggi("rs_valutazioni", []);
+  $app.innerHTML = `<h1>I miei clienti</h1>` + (lista.length ? lista.map(v => {
+    const m = media(v.punteggi), [, cl] = livello(m);
+    return `<div class="card cliente" data-id="${v.id}"><div><b>${esc(v.studio)}</b><p class="meta">${v.citta ? esc(v.citta) + " · " : ""}${oggi(v.data)}</p></div><span class="tondo ${cl}">${m}</span></div>`;
+  }).join("") : `<div class="card vuoto">Nessuna valutazione ancora.<br>Tocca <b>Nuova radiografia</b> per iniziare.</div>`)
+    + `<p class="avviso">Versione dimostrativa: i dati restano solo su questo dispositivo.</p>`;
+  $app.querySelectorAll(".cliente").forEach(el => el.onclick = () => vai({ vista: "risultato", id: el.dataset.id }));
+  $barra.innerHTML = `<button class="btn" id="nuova">+ Nuova radiografia</button>`;
+  document.getElementById("nuova").onclick = () => vai({ vista: "form", passo: 0, dati: {}, risposte: {} });
+}
+
+/* ---------- questionario a passi ---------- */
+function vistaForm() {
+  const s = stato, n = AREE.length + 1;
+  $top.textContent = "Annulla"; $top.style.visibility = "visible";
+  $top.onclick = () => { if (confirm("Annullare la valutazione in corso?")) vai({ vista: "home" }); };
+  const risposte = Object.keys(s.risposte).length;
+  let html = `<div class="passi">${Array.from({ length: n }, (_, i) => `<i class="${i <= s.passo ? "on" : ""}"></i>`).join("")}</div>`;
+  if (s.passo === 0) {
+    html += `<p class="passo-tit">Passo 1 di ${n}</p><h1>Dati dello studio</h1><div class="card">
+      ${[["studio", "Nome studio *", "text"], ["referente", "Referente / titolare", "text"], ["citta", "Città", "text"], ["email", "Email cliente", "email"], ["telefono", "Telefono cliente", "tel"]]
+        .map(([k, l, t]) => `<label class="campo">${l}<input data-k="${k}" type="${t}" value="${esc(s.dati[k])}"></label>`).join("")}
+      <label class="campo" style="margin:0">Note del consulente<textarea data-k="note" rows="3">${esc(s.dati.note)}</textarea></label></div>`;
+  } else {
+    const a = AREE[s.passo - 1];
+    html += `<p class="passo-tit">Passo ${s.passo + 1} di ${n} · ${risposte}/${TOT} risposte</p><h1>${esc(a.nome)}</h1><div class="card">` +
+      a.domande.map(d => `<div class="domanda"><p>${esc(d.testo)}</p><div class="scala">` +
+        SCALA.map(([v, et]) => `<button type="button" data-q="${d.id}" data-v="${v}" aria-label="${v} - ${esc(et)}" class="${s.risposte[d.id] === v ? "sel" : ""}">${v}</button>`).join("") +
+        `</div><div class="estremi"><span>${esc(SCALA[0][1])}</span><span>${esc(SCALA[SCALA.length - 1][1])}</span></div></div>`).join("") + `</div>`;
+  }
+  $app.innerHTML = html;
+  $app.querySelectorAll("[data-k]").forEach(el => el.oninput = () => s.dati[el.dataset.k] = el.value);
+  $app.querySelectorAll("[data-q]").forEach(el => el.onclick = () => {
+    s.risposte[el.dataset.q] = +el.dataset.v;
+    el.parentNode.querySelectorAll("button").forEach(b => b.classList.toggle("sel", b === el));
+    document.querySelector(".passo-tit").textContent = `Passo ${s.passo + 1} di ${n} · ${Object.keys(s.risposte).length}/${TOT} risposte`;
+    aggiornaAvanti();
+  });
+  const ultimo = s.passo === n - 1;
+  $barra.innerHTML = (s.passo > 0 ? `<button class="btn sec" id="indietro">Indietro</button>` : "") + `<button class="btn" id="avanti">${ultimo ? "Calcola" : "Avanti"}</button>`;
+  if (s.passo > 0) document.getElementById("indietro").onclick = () => { s.passo--; render(); window.scrollTo(0, 0); };
+  const av = document.getElementById("avanti");
+  function aggiornaAvanti() {
+    av.disabled = s.passo > 0 && AREE[s.passo - 1].domande.some(d => !s.risposte[d.id]);
+  }
+  aggiornaAvanti();
+  av.onclick = () => {
+    if (s.passo === 0 && !(s.dati.studio || "").trim()) { const i = $app.querySelector('[data-k="studio"]'); i.focus(); i.style.borderColor = "var(--critico)"; return; }
+    if (!ultimo) { s.passo++; render(); window.scrollTo(0, 0); return; }
+    const v = { id: String(Date.now()), data: new Date().toISOString(), ...s.dati, risposte: s.risposte, punteggi: calcola(s.risposte), commerciale: leggi("rs_commerciale", {}) };
+    scrivi("rs_valutazioni", [v, ...leggi("rs_valutazioni", [])]);
+    vai({ vista: "risultato", id: v.id });
+  };
+}
+
+/* ---------- grafico a ragno SVG ---------- */
+function radar(report) {
+  const cx = 300, cy = 250, r = 165, n = report.length;
+  const pt = (i, v, rr = r) => { const a = -Math.PI / 2 + 2 * Math.PI * i / n; return [cx + rr * v / 100 * Math.cos(a), cy + rr * v / 100 * Math.sin(a)]; };
+  const poli = vals => vals.map((v, i) => pt(i, v).map(x => x.toFixed(1)).join(",")).join(" ");
+  let s = `<svg class="radar" viewBox="-60 40 720 425" role="img" aria-label="Grafico a ragno">`;
+  for (const l of [25, 50, 75, 100]) s += `<polygon class="g" points="${poli(Array(n).fill(l))}"/>`;
+  report.forEach((_, i) => { const [x, y] = pt(i, 100); s += `<line class="ax" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/>`; });
+  s += `<polygon class="ob" points="${poli(Array(n).fill(75))}"/><polygon class="st" points="${poli(report.map(r => r.p))}"/>`;
+  report.forEach((a, i) => { const [x, y] = pt(i, a.p); s += `<circle class="pt ${a.cl}" cx="${x}" cy="${y}" r="8"/>`; });
+  report.forEach((a, i) => {
+    let [x, y] = pt(i, 100, r + 16);
+    const anc = Math.abs(x - cx) < 10 ? "middle" : x > cx ? "start" : "end";
+    y += y < cy - 10 ? -8 : Math.abs(y - cy) <= 10 ? 6 : 22;
+    s += `<text class="lb" x="${x}" y="${y}" text-anchor="${anc}">${esc(a.breve)} <tspan class="lv">${a.p}</tspan></text>`;
+  });
+  for (const l of [25, 50, 75, 100]) s += `<text class="tk" x="${cx + 4}" y="${cy - r * l / 100 + 14}">${l}</text>`;
+  return s + `</svg><p class="leg">Area colorata = studio · tratteggio = obiettivo 75</p>`;
+}
+
+/* ---------- risultato e report ---------- */
+function vistaRisultato(id) {
+  const v = leggi("rs_valutazioni", []).find(x => x.id === id);
+  if (!v) return vai({ vista: "home" });
+  $top.textContent = "Clienti"; $top.style.visibility = "visible"; $top.onclick = () => vai({ vista: "home" });
+  const report = AREE.map(a => { const p = v.punteggi[a.id] ?? 0, [lv, cl] = livello(p); return { ...a, breve: a.breve || a.nome, p, lv, cl }; });
+  const m = media(v.punteggi), [, clm] = livello(m), c = v.commerciale || {};
+  $app.innerHTML = `
+    <div class="testa"><div><h1 style="margin:0">${esc(v.studio)}</h1>
+      <p class="meta">${[v.referente, v.citta, oggi(v.data)].filter(Boolean).map(esc).join(" · ")}</p>
+      ${c.nome ? `<p class="meta">Consulente: <b>${esc(c.nome)}</b>${c.telefono ? " · " + esc(c.telefono) : ""}${c.email ? " · " + esc(c.email) : ""}</p>` : ""}</div>
+      <div class="indice ${clm}"><b>${m}</b><small>Indice globale</small></div></div>
+    <div class="card" style="margin-top:14px"><h2>Radiografia per area</h2>${radar(report)}</div>
+    <div class="card"><h2>Punteggi</h2>${report.map(r => `<div class="riga"><div class="riga-t"><span>${esc(r.nome)}</span><b>${r.p}</b></div><div class="barra"><div class="riemp ${r.cl}" style="width:${r.p}%"></div></div></div>`).join("")}</div>
+    <div class="card"><h2>Report di azione</h2><p class="meta">Si parte dalle aree con punteggio più basso.</p>
+      ${[...report].sort((a, b) => a.p - b.p).map((r, i) => `<div class="azione ${r.cl}"><div class="azione-t"><b>${i + 1}. ${esc(r.nome)}</b><span class="pill ${r.cl}">${r.lv} · ${r.p}</span></div>
+        ${r.cl !== "buono" ? `<ul>${r.azioni.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="meta">Area solida: mantenere e monitorare.</p>`}</div>`).join("")}</div>
+    ${v.note ? `<div class="card"><h2>Note del consulente</h2><p style="margin:0;white-space:pre-wrap">${esc(v.note)}</p></div>` : ""}
+    <div class="stack no-print"><button class="btn peric" id="elimina">Elimina valutazione</button></div>`;
+  document.getElementById("elimina").onclick = () => {
+    if (!confirm("Eliminare questa valutazione?")) return;
+    scrivi("rs_valutazioni", leggi("rs_valutazioni", []).filter(x => x.id !== id)); vai({ vista: "home" });
+  };
+  $barra.innerHTML = `<button class="btn sec" id="cond">Condividi</button><button class="btn" id="stampa">PDF / Stampa</button>`;
+  document.getElementById("stampa").onclick = () => window.print();
+  const testo = `Radiografia ${v.studio} — indice globale ${m}/100\n` + [...report].sort((a, b) => a.p - b.p).map(r => `• ${r.nome}: ${r.p} (${r.lv})`).join("\n");
+  document.getElementById("cond").onclick = async () => {
+    if (navigator.share) { try { await navigator.share({ title: "Radiografia " + v.studio, text: testo }); } catch (e) {} }
+    else { try { await navigator.clipboard.writeText(testo); alert("Riepilogo copiato negli appunti."); } catch (e) { alert(testo); } }
+  };
+}
+
+render();
+</script>
+</body>
+</html>

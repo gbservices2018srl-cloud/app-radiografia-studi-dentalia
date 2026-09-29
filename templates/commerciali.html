@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Commerciali{% endblock %}
+{% block content %}
+<h1>Commerciali</h1>
+
+<div class="lista">
+  {% for u in utenti %}
+  <div class="card riga-utente {{ '' if u.attivo else 'spento' }}">
+    <div class="riga-top">
+      <div>
+        <strong>{{ u.nome }}</strong> {% if u.is_admin %}<span class="pill neutro">Admin</span>{% endif %}
+        {% if not u.attivo %}<span class="pill critico">Disattivato</span>{% endif %}
+        <p class="meta">{{ u.email }}{% if u.telefono %} · {{ u.telefono }}{% endif %}</p>
+      </div>
+      <a class="conta" href="{{ url_for('index', commerciale=u.id) }}"><b>{{ conteggi[u.id] }}</b><small>valutazioni</small></a>
+    </div>
+    <details class="gestisci">
+      <summary>Gestisci</summary>
+      <form method="post" action="{{ url_for('reimposta_password', uid=u.id) }}" class="inline">
+        <input type="text" name="password" placeholder="Nuova password" minlength="8" required>
+        <button class="btn" type="submit">Reimposta</button>
+      </form>
+      {% if u.id != utente.id %}
+      <form method="post" action="{{ url_for('cambia_stato', uid=u.id) }}">
+        <button class="btn secondario" type="submit">{{ 'Disattiva account' if u.attivo else 'Riattiva account' }}</button>
+      </form>
+      {% endif %}
+    </details>
+  </div>
+  {% endfor %}
+</div>
+
+<section class="card">
+  <h2>Nuovo commerciale</h2>
+  <form method="post">
+    <div class="griglia">
+      <label>Nome e cognome *<input name="nome" required></label>
+      <label>Email *<input type="email" name="email" required></label>
+      <label>Telefono<input type="tel" name="telefono"></label>
+      <label>Password iniziale * (min. 8)<input type="text" name="password" minlength="8" required></label>
+      <label>Ruolo
+        <select name="ruolo"><option value="commerciale">Commerciale</option><option value="admin">Amministratore</option></select>
+      </label>
+    </div>
+    <button class="btn grande" type="submit" style="margin-top:14px">Crea account</button>
+  </form>
+</section>
+{% endblock %}

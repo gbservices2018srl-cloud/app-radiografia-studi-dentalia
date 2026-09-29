@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>{{ 'Tutte le valutazioni' if utente.is_admin else 'I miei clienti' }}</h1>
+  {% if utente.is_admin %}
+  <form method="get" class="filtro">
+    <select name="commerciale" onchange="this.form.submit()" aria-label="Filtra per commerciale">
+      <option value="">Tutti i commerciali</option>
+      {% for u in utenti %}<option value="{{ u.id }}" {{ 'selected' if filtro == u.id }}>{{ u.nome }}</option>{% endfor %}
+    </select>
+  </form>
+  {% endif %}
+</div>
+
+{% if righe %}
+<div class="lista">
+  {% for r in righe %}
+  <a class="card cliente" href="{{ url_for('risultato', vid=r.v.id) }}">
+    <div>
+      <strong>{{ r.v.studio }}</strong>
+      <p class="meta">{{ r.v.citta or '' }}{% if r.v.citta %} · {% endif %}{{ r.v.creata_il.strftime('%d/%m/%Y') }}
+        {% if utente.is_admin and r.comm %} · {{ r.comm.nome }}{% endif %}</p>
+    </div>
+    <span class="punteggio-tondo {{ 'critico' if r.media < 50 else ('medio' if r.media < 75 else 'buono') }}">{{ r.media }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card vuoto">
+  <p>Nessuna valutazione ancora.</p>
+  <a href="{{ url_for('nuova') }}" class="btn">Inizia la prima radiografia</a>
+</div>
+{% endif %}
+{% endblock %}
