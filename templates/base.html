@@ -3,15 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0e7490">
+  <meta name="theme-color" content="#062039">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>{% block title %}Radiografia Studio{% endblock %}</title>
+  <title>{% block title %}Radiografia Studio{% endblock %} · Dentalia</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='brand/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/apple-touch-icon.png') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Josefin+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   {% if utente %}
   <header class="topbar no-print">
-    <a href="{{ url_for('index') }}" class="brand">Radiografia Studio</a>
+    <a href="{{ url_for('index') }}" class="brand" aria-label="Dentalia — Radiografia Studio">
+      <img class="marchio" src="{{ url_for('static', filename='brand/logo-simbolo-bianco.png') }}" alt="">
+      <img class="scritta" src="{{ url_for('static', filename='brand/logo-scritta-bianca.png') }}" alt="Dentalia">
+      <span class="sotto">Radiografia Studio</span>
+    </a>
     <nav class="menu">
       <a href="{{ url_for('preventivo_nuovo') if request.endpoint and request.endpoint.startswith('preventiv') else url_for('nuova') }}" class="btn chiaro">+ Nuova</a>
       <details class="utente-menu">

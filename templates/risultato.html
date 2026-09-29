@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ v.studio }} — Radiografia{% endblock %}
 {% block content %}
+<div class="intestazione-report">
+  <img src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia">
+  <div class="tit"><b>Radiografia dello studio</b>Check-up gestionale</div>
+</div>
 <div class="intestazione">
   <div>
     <h1>{{ v.studio }}</h1>
@@ -63,8 +67,10 @@
 <section class="card"><h2>Note del consulente</h2><p>{{ v.note }}</p></section>
 {% endif %}
 
+<p class="firma-brand">Report realizzato da <img src="{{ url_for('static', filename='brand/logo-scritta.png') }}" alt="Dentalia"> · Studi indipendenti. Più forti. Insieme.</p>
+
 <div class="azioni-pagina no-print">
-  <a class="btn" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo da questo report</a>
+  <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo da questo report</a>
   <button class="btn sec-btn" onclick="window.print()">Stampa / salva PDF</button>
   <form method="post" action="{{ url_for('elimina', vid=v.id) }}" onsubmit="return confirm('Eliminare questa valutazione?')">
     <button class="btn secondario" type="submit">Elimina</button>

@@ -2,7 +2,7 @@
 {% block title %}Richiedi l'accesso — Radiografia Studio{% endblock %}
 {% block content %}
 <div class="login-box">
-  <div class="logo">RS</div>
+  <img class="logo-login" src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia — Studi indipendenti. Più forti. Insieme.">
   <h1>Richiedi l'accesso</h1>
   {% if inviata %}
   <div class="card" style="text-align:center;margin-top:20px">

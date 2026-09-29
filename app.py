@@ -91,7 +91,7 @@ class Preventivo(db.Model):
     numero = db.Column(db.Integer, nullable=False)
     utente_id = db.Column(db.Integer, db.ForeignKey("utente.id"), nullable=False)
     valutazione_id = db.Column(db.Integer, db.ForeignKey("valutazione.id"))
-    stato = db.Column(db.String(20), default="bozza")   # bozza, inviato, accettato, rifiutato
+    stato = db.Column(db.String(20), default="bozza")   # bozza, inviato (= consegnato), accettato, rifiutato
     data = db.Column(db.Date, nullable=False)
     validita_giorni = db.Column(db.Integer, default=30)
     cliente = db.Column(db.String(200), nullable=False)
@@ -534,7 +534,7 @@ def radar_svg(report, cx=300, cy=250, r=165, obiettivo=75):
 # ------------------------------------------------------------------ preventivi
 STATI = {
     "bozza": "Bozza",
-    "inviato": "Inviato",
+    "inviato": "Consegnato",   # chiave interna "inviato" mantenuta per i dati già salvati
     "accettato": "Accettato",
     "rifiutato": "Rifiutato",
 }

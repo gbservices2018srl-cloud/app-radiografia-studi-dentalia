@@ -12,8 +12,8 @@
 <div class="kpi kpi-5">
   <div class="kpi-box" style="--s: var(--primario)"><small>Commerciali attivi</small><b>{{ kpi.commerciali }}</b></div>
   <div class="kpi-box" style="--s: var(--medio)"><small>Richieste in attesa</small><b>{{ kpi.in_attesa }}</b></div>
-  <a class="kpi-box" style="--s: #64748b" href="{{ url_for('index') }}"><small>Radiografie</small><b>{{ kpi.radiografie }}</b></a>
-  <a class="kpi-box" style="--s: #2563eb" href="{{ url_for('preventivi') }}"><small>Preventivi</small><b>{{ kpi.preventivi }}</b></a>
+  <a class="kpi-box" style="--s: var(--primario-2)" href="{{ url_for('index') }}"><small>Radiografie</small><b>{{ kpi.radiografie }}</b></a>
+  <a class="kpi-box" style="--s: var(--oro)" href="{{ url_for('preventivi') }}"><small>Preventivi</small><b>{{ kpi.preventivi }}</b></a>
   <a class="kpi-box" style="--s: var(--buono)" href="{{ url_for('preventivi', stato='accettato') }}"><small>Accettato (imponibile)</small><b>{{ kpi.accettato | euro }}</b></a>
 </div>
 

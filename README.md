@@ -1,10 +1,11 @@
-# Radiografia Studio
+# Radiografia Studio · Dentalia
 
 Check-up iniziale di uno studio dentistico: questionario per aree → grafico a ragno → report di azione. Le valutazioni vengono salvate nel database.
 
 ## Accesso e ruoli
 
 - **Amministratore**: vede tutte le valutazioni, filtra per commerciale, crea/disattiva i commerciali e ne reimposta la password (menu → *Commerciali*).
+- **Pannello /admin**: attivazione delle richieste di accesso, creazione/disattivazione account, numeri per commerciale.
 - **Commerciale**: vede e crea solo le proprie valutazioni. Il suo nome, telefono ed email compaiono sul report consegnato al cliente.
 
 Il primo amministratore viene creato automaticamente al primo avvio con le variabili `ADMIN_EMAIL` e `ADMIN_PASSWORD`
@@ -29,6 +30,12 @@ Al primo avvio il listino viene precaricato con servizi di esempio: modificali c
 `demo/index.html` è un file unico che funziona senza server: aprilo sul telefono (o pubblicalo su GitHub Pages)
 per mostrare l'app ai clienti. I dati restano solo su quel dispositivo e non c'è login: per l'uso reale serve la versione online.
 Se modifichi le domande in `questions.py`, ricorda di aggiornarle anche nel file demo (sezione `DATI`).
+
+## Brand
+
+Logo e palette Dentalia sono in `static/brand/` (logo completo, simbolo, scritta, versioni bianche, favicon)
+e nelle variabili colore in cima a `static/style.css`: blu notte `#062039`, oro `#cca165`.
+Per cambiare un colore in tutta l'app basta modificarlo lì.
 
 ## Struttura
 

@@ -4,26 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Preventivo {{ p.codice }} — {{ p.cliente }}</title>
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='brand/favicon-32.png') }}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Josefin+Sans:wght@600;700&display=swap" rel="stylesheet">
 <style>
   @page { size: A4; margin: 16mm 14mm 18mm; }
+  :root { --navy: #062039; --oro: #cca165; --oro-scuro: #8f6a33; --oro-chiaro: #f8f2e8; --titoli: "Josefin Sans", system-ui, sans-serif; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: #e5e7eb; color: #1e293b; font: 10.5pt/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .barra { position: sticky; top: 0; background: #0e7490; padding: 10px 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-  .barra button, .barra a { background: #fff; color: #0e7490; border: 0; border-radius: 8px; padding: 9px 16px; font: 600 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+  body { margin: 0; background: #e8e6e1; color: #0f1f33; font: 10.5pt/1.45 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .barra { position: sticky; top: 0; background: var(--navy); box-shadow: inset 0 -3px 0 var(--oro); padding: 10px 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .barra button, .barra a { background: #fff; color: var(--navy); border: 0; border-radius: 8px; padding: 9px 16px; font: 600 14px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
   .foglio { background: #fff; width: 210mm; max-width: 100%; min-height: 297mm; margin: 20px auto; padding: 16mm 14mm; box-shadow: 0 4px 24px rgba(0,0,0,.12); }
-  .testata { display: flex; justify-content: space-between; gap: 20px; border-bottom: 3px solid #0e7490; padding-bottom: 12px; }
-  .azienda b { font-size: 15pt; color: #0e7490; display: block; margin-bottom: 2px; }
+  .testata { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; border-bottom: 3px solid var(--oro); padding-bottom: 12px; }
+  .testata .logo { height: 78px; width: auto; display: block; margin-bottom: 8px; }
+  .azienda b { font-size: 10.5pt; color: var(--navy); display: block; margin-bottom: 1px; }
   .azienda, .doc { font-size: 9pt; color: #475569; }
   .doc { text-align: right; }
-  .doc .tit { font-size: 18pt; font-weight: 800; color: #1e293b; letter-spacing: .5px; }
-  .doc .numero { font-size: 11pt; font-weight: 700; color: #0e7490; }
+  .doc .tit { font: 700 20pt/1 var(--titoli); color: var(--navy); letter-spacing: 2px; }
+  .doc .numero { font: 700 11.5pt var(--titoli); color: var(--oro-scuro); letter-spacing: 1px; margin: 4px 0 2px; }
   .blocchi { display: flex; gap: 16px; margin: 16px 0; }
-  .blocco { flex: 1; background: #f1f5f9; border-radius: 6px; padding: 10px 12px; font-size: 9.5pt; }
+  .blocco { flex: 1; background: var(--oro-chiaro); border-left: 3px solid var(--oro); border-radius: 6px; padding: 10px 12px; font-size: 9.5pt; }
   .blocco small { display: block; text-transform: uppercase; letter-spacing: .6px; font-size: 7.5pt; color: #64748b; font-weight: 700; margin-bottom: 3px; }
   .blocco b { font-size: 11pt; }
-  .oggetto { margin: 4px 0 12px; font-size: 10.5pt; } .oggetto b { color: #0e7490; }
+  .oggetto { margin: 4px 0 12px; font-size: 10.5pt; } .oggetto b { color: var(--oro-scuro); }
   table { width: 100%; border-collapse: collapse; }
-  thead th { background: #0e7490; color: #fff; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .4px; padding: 7px 6px; text-align: right; font-weight: 600; }
+  thead th { background: var(--navy); color: #fff; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .4px; padding: 7px 6px; text-align: right; font-weight: 600; }
   thead th:first-child { text-align: left; border-radius: 4px 0 0 0; } thead th:last-child { border-radius: 0 4px 0 0; }
   tbody td { padding: 8px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; text-align: right; white-space: nowrap; }
   tbody td:first-child { text-align: left; white-space: normal; }
@@ -35,14 +39,15 @@
   .note p { margin: 0 0 10px; white-space: pre-wrap; }
   .tot { width: 260px; flex: none; }
   .tot div { display: flex; justify-content: space-between; padding: 4px 0; }
-  .tot .finale { border-top: 2px solid #0e7490; margin-top: 4px; padding-top: 8px; font-size: 13pt; font-weight: 800; color: #0e7490; }
+  .tot .finale { border-top: 2px solid var(--oro); margin-top: 4px; padding-top: 8px; font: 700 14pt var(--titoli); color: var(--navy); }
   .firme { display: flex; justify-content: space-between; gap: 40px; margin-top: 36px; font-size: 9pt; color: #475569; break-inside: avoid; }
   .firme div { flex: 1; } .firme .linea { border-bottom: 1px solid #94a3b8; height: 38px; margin-bottom: 4px; }
-  .pie { margin-top: 24px; font-size: 8pt; color: #94a3b8; text-align: center; }
+  .pie { margin-top: 24px; font-size: 8pt; color: #8a8f98; text-align: center; border-top: 1px solid var(--oro-bordo, #e7d4b3); padding-top: 8px; }
+  .pie .motto { display: block; font: 600 7.5pt var(--titoli); letter-spacing: .18em; text-transform: uppercase; color: var(--oro-scuro); margin-top: 3px; }
   @media print {
     body { background: #fff; } .barra { display: none; }
     .foglio { margin: 0; padding: 0; box-shadow: none; width: auto; min-height: 0; }
-    thead th, .blocco { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    thead th, .blocco, .testata, .tot .finale { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
   @media (max-width: 640px) {
     .foglio { margin: 0; padding: 18px 14px; min-height: 0; }
@@ -62,6 +67,7 @@
 <div class="foglio">
   <div class="testata">
     <div class="azienda">
+      <img class="logo" src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia">
       <b>{{ imp.ragione_sociale }}</b>
       {% if imp.indirizzo %}{{ imp.indirizzo }}<br>{% endif %}
       {% if imp.piva %}P. IVA {{ imp.piva }}<br>{% endif %}
@@ -138,7 +144,8 @@
     <div><div class="linea"></div>Per accettazione — timbro e firma del cliente</div>
   </div>
 
-  <p class="pie">{{ imp.ragione_sociale }}{% if imp.piva %} · P. IVA {{ imp.piva }}{% endif %} · Preventivo {{ p.codice }}</p>
+  <p class="pie">{{ imp.ragione_sociale }}{% if imp.piva %} · P. IVA {{ imp.piva }}{% endif %} · Preventivo {{ p.codice }}
+    <span class="motto">Studi indipendenti. Più forti. Insieme.</span></p>
 </div>
 </body>
 </html>
