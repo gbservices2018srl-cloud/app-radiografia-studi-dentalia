@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Nuova valutazione{% endblock %}
+{% block content %}
+<h1>Nuova radiografia</h1>
+<form method="post" id="form">
+  <section class="card">
+    <h2>Dati dello studio</h2>
+    <div class="griglia">
+      <label>Nome studio *<input name="studio" required></label>
+      <label>Referente / titolare<input name="referente"></label>
+      <label>Città<input name="citta"></label>
+      <label>Email cliente<input type="email" name="email_cliente"></label>
+      <label>Telefono cliente<input type="tel" name="telefono_cliente"></label>
+    </div>
+  </section>
+
+  <div class="progress no-print"><div class="traccia"><div id="bar"></div></div><span id="conta">0 / {{ aree | sum(attribute="domande", start=[]) | length }} risposte</span></div>
+
+  {% for area in aree %}
+  <section class="card">
+    <h2>{{ loop.index }}. {{ area.nome }}</h2>
+    {% for d in area.domande %}
+    <div class="domanda">
+      <p>{{ d.testo }}</p>
+      <div class="scala">
+        {% for val, et in scala %}
+        <label class="opz" title="{{ et }}">
+          <input type="radio" name="{{ d.id }}" value="{{ val }}" required>
+          <span>{{ val }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+
+  <p class="legenda">Scala: {% for val, et in scala %}<b>{{ val }}</b> = {{ et }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+
+  <section class="card">
+    <h2>Note del consulente</h2>
+    <textarea name="note" rows="4" placeholder="Osservazioni emerse durante l'incontro…"></textarea>
+  </section>
+
+  <button class="btn grande" type="submit">Calcola la radiografia</button>
+</form>
+
+<script>
+  const tot = {{ aree | sum(attribute='domande', start=[]) | length }};
+  const form = document.getElementById('form');
+  form.addEventListener('change', () => {
+    const n = new Set([...form.querySelectorAll('input[type=radio]:checked')].map(i => i.name)).size;
+    document.getElementById('bar').style.width = (n / tot * 100) + '%';
+    document.getElementById('conta').textContent = n + ' / ' + tot + ' risposte';
+  });
+</script>
+{% endblock %}

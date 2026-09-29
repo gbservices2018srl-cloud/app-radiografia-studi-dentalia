@@ -1,0 +1,14 @@
+<div class="griglia">
+  <label>Codice<input name="codice" value="{{ s.codice if s else '' }}"></label>
+  <label>Descrizione *<input name="descrizione" value="{{ s.descrizione if s else '' }}" required></label>
+  <label>Prezzo €<input name="prezzo" type="number" step="0.01" min="0" value="{{ s.prezzo if s else '' }}"></label>
+  <label>Unità<input name="unita" value="{{ s.unita if s else 'a corpo' }}" placeholder="a corpo, mese, giornata…"></label>
+  <label>IVA %<input name="iva" type="number" step="1" min="0" value="{{ (s.iva | num) if s else 22 }}"></label>
+  <label>Area radiografia
+    <select name="area_id">
+      <option value="">— Nessuna —</option>
+      {% for a in aree %}<option value="{{ a.id }}" {{ 'selected' if s and s.area_id == a.id }}>{{ a.nome }}</option>{% endfor %}
+    </select>
+  </label>
+</div>
+<label style="display:block;margin:12px 0">Dettaglio<input name="dettaglio" value="{{ s.dettaglio if s and s.dettaglio else '' }}"></label>

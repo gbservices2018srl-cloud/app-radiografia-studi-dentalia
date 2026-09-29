@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ v.studio }} — Radiografia{% endblock %}
+{% block content %}
+<div class="intestazione">
+  <div>
+    <h1>{{ v.studio }}</h1>
+    <p class="meta">{% if v.referente %}{{ v.referente }} · {% endif %}{% if v.citta %}{{ v.citta }} · {% endif %}{{ v.creata_il.strftime('%d/%m/%Y') }}</p>
+    {% if commerciale %}<p class="meta">Consulente: <strong>{{ commerciale.nome }}</strong>{% if commerciale.telefono %} · {{ commerciale.telefono }}{% endif %} · {{ commerciale.email }}</p>{% endif %}
+  </div>
+  <div class="indice {{ 'critico' if media < 50 else ('medio' if media < 75 else 'buono') }}">
+    <span>{{ media }}</span><small>Indice globale</small>
+  </div>
+</div>
+
+<section class="card">
+  <h2>Radiografia per area</h2>
+  <svg class="radar" viewBox="-60 40 720 425" role="img" aria-label="Grafico a ragno dei punteggi per area">
+    {% for g in radar.griglia %}<polygon points="{{ g }}" class="griglia-r"/>{% endfor %}
+    {% for x, y in radar.assi %}<line x1="{{ radar.cx }}" y1="{{ radar.cy }}" x2="{{ '%.1f'|format(x) }}" y2="{{ '%.1f'|format(y) }}" class="asse"/>{% endfor %}
+    <polygon points="{{ radar.obiettivo }}" class="obiettivo"/>
+    <polygon points="{{ radar.studio }}" class="studio"/>
+    {% for p in radar.punti %}<circle cx="{{ '%.1f'|format(p.x) }}" cy="{{ '%.1f'|format(p.y) }}" r="6" class="pt {{ p.classe }}"/>{% endfor %}
+    {% for e in radar.etichette %}
+    <text x="{{ '%.1f'|format(e.x) }}" y="{{ '%.1f'|format(e.y) }}" text-anchor="{{ e.ancora }}" class="etich">
+      {{ e.nome }} <tspan class="etich-val">{{ e.punteggio }}</tspan>
+    </text>
+    {% endfor %}
+    {% for liv in [25, 50, 75, 100] %}<text x="{{ radar.cx + 4 }}" y="{{ radar.cy - radar.r * liv / 100 + 13 }}" class="tick">{{ liv }}</text>{% endfor %}
+  </svg>
+  <p class="legenda-r"><span class="sw studio-sw"></span> Studio <span class="sw obiettivo-sw"></span> Obiettivo (75)</p>
+</section>
+
+<section class="card">
+  <h2>Punteggi</h2>
+  {% for r in report %}
+  <div class="barra-riga">
+    <span class="nome">{{ r.nome }}</span>
+    <div class="barra"><div class="riemp {{ r.classe }}" style="width: {{ r.punteggio }}%"></div></div>
+    <span class="val">{{ r.punteggio }}</span>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Report di azione</h2>
+  <p class="meta">Aree ordinate per priorità: si parte da quelle con punteggio più basso.</p>
+  {% for r in priorita %}
+  <div class="azione {{ r.classe }}">
+    <div class="azione-testa">
+      <strong>{{ loop.index }}. {{ r.nome }}</strong>
+      <span class="pill {{ r.classe }}">{{ r.livello }} · {{ r.punteggio }}/100</span>
+    </div>
+    {% if r.classe != 'buono' %}
+    <ul>{% for a in r.azioni %}<li>{{ a }}</li>{% endfor %}</ul>
+    {% else %}
+    <p class="meta">Area solida: mantenere gli standard attuali e monitorare.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+
+{% if v.note %}
+<section class="card"><h2>Note del consulente</h2><p>{{ v.note }}</p></section>
+{% endif %}
+
+<div class="azioni-pagina no-print">
+  <a class="btn" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo da questo report</a>
+  <button class="btn sec-btn" onclick="window.print()">Stampa / salva PDF</button>
+  <form method="post" action="{{ url_for('elimina', vid=v.id) }}" onsubmit="return confirm('Eliminare questa valutazione?')">
+    <button class="btn secondario" type="submit">Elimina</button>
+  </form>
+</div>
+
+{% endblock %}
