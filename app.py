@@ -17,8 +17,12 @@ app = Flask(__name__)
 # Su Render la variabile DATABASE_URL punta al database Postgres.
 # In locale, senza variabile, usa un file SQLite.
 db_url = os.environ.get("DATABASE_URL", "sqlite:///radiografia.db")
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+# Indica esplicitamente il driver psycopg2 (installato da requirements.txt):
+# le versioni recenti di SQLAlchemy altrimenti cercano "psycopg" (v3).
+for prefisso in ("postgres://", "postgresql://"):
+    if db_url.startswith(prefisso):
+        db_url = "postgresql+psycopg2://" + db_url[len(prefisso):]
+        break
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-cambiami")
 
