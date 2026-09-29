@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Pannello amministratore{% endblock %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>Pannello amministratore</h1>
+  <div class="azioni-riga">
+    <a class="btn sec-btn piccolo" href="{{ url_for('listino') }}">Listino</a>
+    <a class="btn sec-btn piccolo" href="{{ url_for('impostazioni_azienda') }}">Dati aziendali</a>
+  </div>
+</div>
+
+<div class="kpi kpi-5">
+  <div class="kpi-box" style="--s: var(--primario)"><small>Commerciali attivi</small><b>{{ kpi.commerciali }}</b></div>
+  <div class="kpi-box" style="--s: var(--medio)"><small>Richieste in attesa</small><b>{{ kpi.in_attesa }}</b></div>
+  <a class="kpi-box" style="--s: #64748b" href="{{ url_for('index') }}"><small>Radiografie</small><b>{{ kpi.radiografie }}</b></a>
+  <a class="kpi-box" style="--s: #2563eb" href="{{ url_for('preventivi') }}"><small>Preventivi</small><b>{{ kpi.preventivi }}</b></a>
+  <a class="kpi-box" style="--s: var(--buono)" href="{{ url_for('preventivi', stato='accettato') }}"><small>Accettato (imponibile)</small><b>{{ kpi.accettato | euro }}</b></a>
+</div>
+
+{% if in_attesa %}
+<section class="card richieste">
+  <h2>Richieste di accesso da attivare <span class="pill medio">{{ in_attesa | length }}</span></h2>
+  {% for u in in_attesa %}
+  <div class="richiesta">
+    <div>
+      <strong>{{ u.nome }}</strong>
+      <p class="meta">{{ u.email }}{% if u.telefono %} · {{ u.telefono }}{% endif %} · richiesta del {{ u.creato_il | ora_locale }}</p>
+    </div>
+    <div class="azioni-riga">
+      <form method="post" action="{{ url_for('admin_attiva', uid=u.id) }}"><button class="btn" type="submit">Attiva</button></form>
+      <form method="post" action="{{ url_for('admin_rifiuta', uid=u.id) }}" onsubmit="return confirm('Rifiutare la richiesta di {{ u.nome }}?')"><button class="btn secondario" type="submit">Rifiuta</button></form>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<h2 class="sezione">Utenti</h2>
+<div class="lista">
+  {% for u in account %}
+  {% set c = conteggi[u.id] %}
+  <div class="card riga-utente {{ '' if u.attivo else 'spento' }}">
+    <div class="riga-top">
+      <div>
+        <strong>{{ u.nome }}</strong>
+        {% if u.is_admin %}<span class="pill neutro">Admin</span>{% endif %}
+        {% if u.attivo %}<span class="pill buono">Attivo</span>{% else %}<span class="pill critico">Disattivato</span>{% endif %}
+        <p class="meta">{{ u.email }}{% if u.telefono %} · {{ u.telefono }}{% endif %}</p>
+        <p class="meta">Ultimo accesso: {{ (u.ultimo_accesso | ora_locale) or 'mai' }}</p>
+      </div>
+      <div class="numeri">
+        <a href="{{ url_for('index', commerciale=u.id) }}"><b>{{ c.radiografie }}</b><small>radiografie</small></a>
+        <a href="{{ url_for('preventivi', commerciale=u.id) }}"><b>{{ c.preventivi }}</b><small>preventivi</small></a>
+        <a href="{{ url_for('preventivi', commerciale=u.id, stato='accettato') }}"><b>{{ c.accettato | euro }}</b><small>accettato</small></a>
+      </div>
+    </div>
+    <details class="gestisci">
+      <summary>Gestisci</summary>
+      <form method="post" action="{{ url_for('reimposta_password', uid=u.id) }}" class="inline">
+        <input type="text" name="password" placeholder="Nuova password (min. 8)" minlength="8" required aria-label="Nuova password">
+        <button class="btn" type="submit">Reimposta password</button>
+      </form>
+      {% if u.id != utente.id %}
+      <form method="post" action="{{ url_for('cambia_stato', uid=u.id) }}">
+        <button class="btn {{ 'secondario' if u.attivo else '' }}" type="submit">{{ 'Disattiva account' if u.attivo else 'Riattiva account' }}</button>
+      </form>
+      {% endif %}
+    </details>
+  </div>
+  {% endfor %}
+</div>
+
+<section class="card" id="nuovo">
+  <h2>Crea un account commerciale</h2>
+  <p class="meta" style="margin:-6px 0 12px">L'account è attivo subito: comunica al commerciale email e password, potrà cambiarla dal suo menu.</p>
+  <form method="post" action="{{ url_for('admin_crea_utente') }}">
+    <div class="griglia">
+      <label>Nome e cognome *<input name="nome" required></label>
+      <label>Email *<input type="email" name="email" required></label>
+      <label>Telefono<input type="tel" name="telefono"></label>
+      <label>Password iniziale * (min. 8)<input type="text" name="password" minlength="8" required></label>
+      <label>Ruolo
+        <select name="ruolo"><option value="commerciale">Commerciale</option><option value="admin">Amministratore</option></select>
+      </label>
+    </div>
+    <button class="btn grande" type="submit" style="margin-top:14px">Crea account</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Come fanno i commerciali a entrare</h2>
+  <p class="meta">Mandagli l'indirizzo della pagina di accesso: <strong>{{ url_for('login', _external=True) }}</strong><br>
+  Se non hai creato tu l'account, dalla stessa pagina possono premere <em>Richiedi l'accesso</em>: la richiesta comparirà qui sopra e dovrai attivarla.</p>
+</section>
+{% endblock %}

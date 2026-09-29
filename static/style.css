@@ -233,3 +233,16 @@ select { width: 100%; margin-top: 4px; padding: 9px 10px; border: 1px solid var(
   .prev-link { flex-direction: column; } .prev-importo { text-align: left; }
   .titolo-riga > .btn { width: 100%; }
 }
+
+/* ---------- Pannello admin (v4) ---------- */
+.kpi-5 { grid-template-columns: repeat(5, 1fr); }
+a.kpi-box { color: var(--testo); }
+.sezione { margin: 20px 0 10px; }
+.richieste { border: 2px solid #fcd34d; background: #fffbeb; }
+.richiesta { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #fde68a; flex-wrap: wrap; }
+.richiesta:first-of-type { border-top: 0; }
+.numeri { display: flex; gap: 16px; text-align: center; }
+.numeri a { text-decoration: none; color: var(--testo); }
+.numeri b { display: block; font-size: 1.05rem; } .numeri small { color: var(--tenue); font-size: .72rem; }
+.pill.buono { background: var(--buono); }
+@media (max-width: 760px) { .kpi-5 { grid-template-columns: repeat(2, 1fr); } .riga-utente .riga-top { flex-direction: column; align-items: flex-start; } }

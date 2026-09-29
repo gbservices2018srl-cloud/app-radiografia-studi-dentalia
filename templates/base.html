@@ -21,7 +21,7 @@
           <a href="{{ url_for('index') }}">Radiografie</a>
           <a href="{{ url_for('preventivi') }}">Preventivi</a>
           {% if utente.is_admin %}
-          <a href="{{ url_for('commerciali') }}">Commerciali</a>
+          <a href="{{ url_for('admin') }}"><strong>Pannello admin</strong></a>
           <a href="{{ url_for('listino') }}">Listino servizi</a>
           <a href="{{ url_for('impostazioni_azienda') }}">Dati aziendali</a>
           {% endif %}
@@ -34,6 +34,7 @@
   <nav class="schede no-print">
     <a href="{{ url_for('index') }}" class="{{ 'on' if request.endpoint in ('index','nuova','risultato') }}">Radiografie</a>
     <a href="{{ url_for('preventivi') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('preventiv') }}">Preventivi</a>
+    {% if utente.is_admin %}<a href="{{ url_for('admin') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('admin') }}">Admin</a>{% endif %}
   </nav>
   {% endif %}
   <main class="wrap">

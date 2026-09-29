@@ -9,8 +9,9 @@ import sys
 import tempfile
 import unittest
 
+# Su GitHub i test girano due volte: con SQLite e con un vero Postgres (TEST_DATABASE_URL).
 DB = os.path.join(tempfile.mkdtemp(), "test.db")
-os.environ["DATABASE_URL"] = f"sqlite:///{DB}"
+os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{DB}"
 os.environ["ADMIN_EMAIL"] = "admin@test.it"
 os.environ["ADMIN_PASSWORD"] = "admin-test-123"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,7 +35,7 @@ class TestApp(unittest.TestCase):
         m.app.config["TESTING"] = True
         cls.admin = login("admin@test.it", "admin-test-123")
         for nome, email in (("Marco Bianchi", "marco@test.it"), ("Laura Verdi", "laura@test.it")):
-            cls.admin.post("/commerciali", data={"nome": nome, "email": email, "password": "password123",
+            cls.admin.post("/admin/utenti", data={"nome": nome, "email": email, "password": "password123",
                                                  "ruolo": "commerciale"})
         cls.marco = login("marco@test.it", "password123")
         cls.laura = login("laura@test.it", "password123")
@@ -110,9 +111,46 @@ class TestApp(unittest.TestCase):
         self.assertEqual(self.admin.get("/preventivi?commerciale=2").status_code, 200)
 
     def test_09_pagine_admin(self):
-        for url in ("/commerciali", "/listino", "/impostazioni"):
+        for url in ("/admin", "/listino", "/impostazioni"):
             self.assertEqual(self.admin.get(url).status_code, 200, url)
             self.assertEqual(self.marco.get(url).status_code, 403, url)
+
+    def test_11_richiesta_accesso_e_attivazione(self):
+        anonimo = m.app.test_client()
+        r = anonimo.post("/registrati", data={"nome": "Giulia Neri", "email": "giulia@test.it", "telefono": "",
+                                              "password": "password123", "conferma": "password123"})
+        self.assertIn("Richiesta inviata", r.get_data(as_text=True))
+        # non può entrare finché non è attivata
+        r = anonimo.post("/login", data={"email": "giulia@test.it", "password": "password123"})
+        self.assertIn("in attesa", r.get_data(as_text=True))
+        # l'admin la vede e la attiva
+        pannello = self.admin.get("/admin").get_data(as_text=True)
+        self.assertIn("Giulia Neri", pannello)
+        self.assertIn("Richieste di accesso", pannello)
+        with m.app.app_context():
+            uid = m.Utente.query.filter_by(email="giulia@test.it").first().id
+        self.assertEqual(self.marco.post(f"/admin/utenti/{uid}/attiva").status_code, 403)
+        self.admin.post(f"/admin/utenti/{uid}/attiva")
+        giulia = m.app.test_client()
+        r = giulia.post("/login", data={"email": "giulia@test.it", "password": "password123"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(giulia.get("/").status_code, 200)
+        # disattivazione: la sessione viene chiusa
+        self.admin.post(f"/admin/utenti/{uid}/stato")
+        self.assertEqual(giulia.get("/").status_code, 302)
+
+    def test_12_rifiuto_richiesta(self):
+        m.app.test_client().post("/registrati", data={"nome": "Spam", "email": "spam@test.it",
+                                                      "password": "password123", "conferma": "password123"})
+        with m.app.app_context():
+            uid = m.Utente.query.filter_by(email="spam@test.it").first().id
+        self.admin.post(f"/admin/utenti/{uid}/rifiuta")
+        with m.app.app_context():
+            self.assertIsNone(m.Utente.query.filter_by(email="spam@test.it").first())
+
+    def test_13_admin_atterra_su_admin(self):
+        r = m.app.test_client().post("/login", data={"email": "admin@test.it", "password": "admin-test-123"})
+        self.assertTrue(r.location.endswith("/admin"))
 
     def test_10_listino_iniziale(self):
         with m.app.app_context():

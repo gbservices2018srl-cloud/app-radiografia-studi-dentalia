@@ -39,7 +39,13 @@ class Utente(db.Model):
     telefono = db.Column(db.String(40))
     ruolo = db.Column(db.String(20), default="commerciale")  # "admin" o "commerciale"
     attivo = db.Column(db.Boolean, default=True)
+    approvato = db.Column(db.Boolean, default=True)   # False = richiesta di accesso in attesa
+    ultimo_accesso = db.Column(db.DateTime)
     creato_il = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def in_attesa(self):
+        return self.approvato is False
 
     def imposta_password(self, pw):
         self.password_hash = generate_password_hash(pw)
@@ -168,8 +174,29 @@ def crea_admin_iniziale():
     db.session.commit()
 
 
+def aggiorna_schema():
+    """Aggiunge al database le colonne nuove dei modelli (create_all crea solo le tabelle mancanti)."""
+    if not hasattr(db, "engine"):
+        return
+    from sqlalchemy import inspect, text
+    ispettore = inspect(db.engine)
+    with db.engine.begin() as conn:
+        for tabella in db.metadata.sorted_tables:
+            if not ispettore.has_table(tabella.name):
+                continue
+            esistenti = {c["name"] for c in ispettore.get_columns(tabella.name)}
+            for col in tabella.columns:
+                if col.name not in esistenti:
+                    tipo = col.type.compile(dialect=db.engine.dialect)
+                    conn.execute(text(f'ALTER TABLE "{tabella.name}" ADD COLUMN "{col.name}" {tipo}'))
+
+
 with app.app_context():
     db.create_all()
+    try:
+        aggiorna_schema()
+    except Exception as e:  # non bloccare l'avvio: l'errore resta visibile nei log di Render
+        print(f"ATTENZIONE: aggiornamento schema non riuscito: {e}", flush=True)
     crea_admin_iniziale()
     crea_dati_iniziali()
 
@@ -223,14 +250,48 @@ def iniezioni():
 def login():
     if request.method == "POST":
         u = Utente.query.filter_by(email=request.form["email"].strip().lower()).first()
-        if u and u.attivo and u.verifica_password(request.form["password"]):
+        if not u or not u.verifica_password(request.form["password"]):
+            flash("Email o password non corretti.")
+        elif u.in_attesa:
+            flash("La tua richiesta di accesso è in attesa di approvazione da parte dell'amministratore.")
+        elif not u.attivo:
+            flash("Il tuo account è disattivato. Contatta l'amministratore.")
+        else:
             session.clear()
             session["uid"] = u.id
             session.permanent = True
+            u.ultimo_accesso = datetime.utcnow()
+            db.session.commit()
             dest = request.args.get("next", "")
-            return redirect(dest if dest.startswith("/") and not dest.startswith("//") else url_for("index"))
-        flash("Email o password non corretti.")
+            if dest.startswith("/") and not dest.startswith("//"):
+                return redirect(dest)
+            return redirect(url_for("admin") if u.is_admin else url_for("index"))
     return render_template("login.html")
+
+
+@app.route("/registrati", methods=["GET", "POST"])
+def registrati():
+    """Il commerciale chiede l'accesso: potrà entrare solo dopo l'attivazione da /admin."""
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        pw = request.form.get("password", "")
+        if not nome or "@" not in email:
+            flash("Inserisci nome ed email validi.")
+        elif len(pw) < 8:
+            flash("La password deve avere almeno 8 caratteri.")
+        elif pw != request.form.get("conferma", ""):
+            flash("Le due password non coincidono.")
+        elif Utente.query.filter_by(email=email).first():
+            flash("Esiste già un account o una richiesta con questa email.")
+        else:
+            u = Utente(nome=nome, email=email, telefono=request.form.get("telefono", "").strip(),
+                       ruolo="commerciale", attivo=False, approvato=False)
+            u.imposta_password(pw)
+            db.session.add(u)
+            db.session.commit()
+            return render_template("registrati.html", inviata=True)
+    return render_template("registrati.html", inviata=False)
 
 
 @app.route("/logout")
@@ -255,31 +316,81 @@ def profilo():
     return render_template("profilo.html")
 
 
-# ------------------------------------------------------------------ commerciali (solo admin)
-@app.route("/commerciali", methods=["GET", "POST"])
+# ------------------------------------------------------------------ pannello amministratore
+@app.route("/admin")
 @admin_richiesto
-def commerciali():
-    if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        if Utente.query.filter_by(email=email).first():
-            flash("Esiste già un utente con questa email.")
-        elif len(request.form["password"]) < 8:
-            flash("La password deve avere almeno 8 caratteri.")
-        else:
-            u = Utente(nome=request.form["nome"].strip(), email=email,
-                       telefono=request.form.get("telefono", "").strip(),
-                       ruolo=request.form.get("ruolo", "commerciale"))
-            u.imposta_password(request.form["password"])
-            db.session.add(u)
-            db.session.commit()
-            flash(f"Account creato per {u.nome}.")
-        return redirect(url_for("commerciali"))
+def admin():
     utenti = Utente.query.order_by(Utente.nome).all()
-    conteggi = {u.id: Valutazione.query.filter_by(utente_id=u.id).count() for u in utenti}
-    return render_template("commerciali.html", utenti=utenti, conteggi=conteggi)
+    in_attesa = [u for u in utenti if u.in_attesa]
+    account = [u for u in utenti if not u.in_attesa]
+    valutazioni = Valutazione.query.all()
+    preventivi_tutti = Preventivo.query.all()
+    conteggi = {u.id: {"radiografie": 0, "preventivi": 0, "accettato": 0.0} for u in utenti}
+    for v in valutazioni:
+        if v.utente_id in conteggi:
+            conteggi[v.utente_id]["radiografie"] += 1
+    accettato_totale = 0.0
+    for p in preventivi_tutti:
+        if p.utente_id in conteggi:
+            conteggi[p.utente_id]["preventivi"] += 1
+        if p.stato == "accettato":
+            imp = calcola_totali(json.loads(p.righe), p.sconto_globale)["imponibile"]
+            accettato_totale += imp
+            if p.utente_id in conteggi:
+                conteggi[p.utente_id]["accettato"] += imp
+    kpi = {
+        "commerciali": sum(1 for u in account if u.attivo and not u.is_admin),
+        "in_attesa": len(in_attesa),
+        "radiografie": len(valutazioni),
+        "preventivi": len(preventivi_tutti),
+        "accettato": accettato_totale,
+    }
+    return render_template("admin.html", in_attesa=in_attesa, account=account, conteggi=conteggi, kpi=kpi)
 
 
-@app.post("/commerciali/<int:uid>/stato")
+@app.post("/admin/utenti")
+@admin_richiesto
+def admin_crea_utente():
+    email = request.form["email"].strip().lower()
+    if Utente.query.filter_by(email=email).first():
+        flash("Esiste già un utente con questa email.")
+    elif len(request.form["password"]) < 8:
+        flash("La password deve avere almeno 8 caratteri.")
+    else:
+        u = Utente(nome=request.form["nome"].strip(), email=email,
+                   telefono=request.form.get("telefono", "").strip(),
+                   ruolo=request.form.get("ruolo", "commerciale"), attivo=True, approvato=True)
+        u.imposta_password(request.form["password"])
+        db.session.add(u)
+        db.session.commit()
+        flash(f"Account attivo per {u.nome}: può entrare subito con {u.email}.")
+    return redirect(url_for("admin"))
+
+
+@app.post("/admin/utenti/<int:uid>/attiva")
+@admin_richiesto
+def admin_attiva(uid):
+    u = db.session.get(Utente, uid) or abort(404)
+    u.approvato = True
+    u.attivo = True
+    db.session.commit()
+    flash(f"Accesso attivato per {u.nome}.")
+    return redirect(url_for("admin"))
+
+
+@app.post("/admin/utenti/<int:uid>/rifiuta")
+@admin_richiesto
+def admin_rifiuta(uid):
+    u = db.session.get(Utente, uid) or abort(404)
+    if not u.in_attesa:
+        abort(400)
+    db.session.delete(u)
+    db.session.commit()
+    flash(f"Richiesta di {u.nome} rifiutata.")
+    return redirect(url_for("admin"))
+
+
+@app.post("/admin/utenti/<int:uid>/stato")
 @admin_richiesto
 def cambia_stato(uid):
     u = db.session.get(Utente, uid) or abort(404)
@@ -288,10 +399,11 @@ def cambia_stato(uid):
     else:
         u.attivo = not u.attivo
         db.session.commit()
-    return redirect(url_for("commerciali"))
+        flash(f"Account di {u.nome} {'riattivato' if u.attivo else 'disattivato'}.")
+    return redirect(url_for("admin"))
 
 
-@app.post("/commerciali/<int:uid>/password")
+@app.post("/admin/utenti/<int:uid>/password")
 @admin_richiesto
 def reimposta_password(uid):
     u = db.session.get(Utente, uid) or abort(404)
@@ -302,7 +414,12 @@ def reimposta_password(uid):
         u.imposta_password(pw)
         db.session.commit()
         flash(f"Password di {u.nome} reimpostata.")
-    return redirect(url_for("commerciali"))
+    return redirect(url_for("admin"))
+
+
+@app.route("/commerciali")
+def commerciali():
+    return redirect(url_for("admin"))
 
 
 # ------------------------------------------------------------------ valutazioni
@@ -421,6 +538,16 @@ STATI = {
     "accettato": "Accettato",
     "rifiutato": "Rifiutato",
 }
+
+
+@app.template_filter("ora_locale")
+def ora_locale(dt, formato="%d/%m/%Y %H:%M"):
+    """Le date sono salvate in UTC: le mostra con l'ora italiana."""
+    if not dt:
+        return ""
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    return dt.replace(tzinfo=timezone.utc).astimezone(ZoneInfo("Europe/Rome")).strftime(formato)
 
 
 @app.template_filter("euro")

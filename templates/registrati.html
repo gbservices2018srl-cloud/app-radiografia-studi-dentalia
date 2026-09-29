@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Richiedi l'accesso — Radiografia Studio{% endblock %}
+{% block content %}
+<div class="login-box">
+  <div class="logo">RS</div>
+  <h1>Richiedi l'accesso</h1>
+  {% if inviata %}
+  <div class="card" style="text-align:center;margin-top:20px">
+    <p><strong>Richiesta inviata.</strong></p>
+    <p class="meta">Potrai entrare appena l'amministratore avrà attivato il tuo account.</p>
+    <a class="btn grande" href="{{ url_for('login') }}" style="margin-top:14px">Torna all'accesso</a>
+  </div>
+  {% else %}
+  <p class="meta">Area riservata ai commerciali. L'account sarà attivo dopo l'approvazione dell'amministratore.</p>
+  <form method="post" class="card">
+    <label>Nome e cognome *<input name="nome" autocomplete="name" required value="{{ request.form.get('nome', '') }}"></label>
+    <label>Email *<input type="email" name="email" autocomplete="email" required value="{{ request.form.get('email', '') }}"></label>
+    <label>Telefono<input type="tel" name="telefono" autocomplete="tel" value="{{ request.form.get('telefono', '') }}"></label>
+    <label>Password * (min. 8 caratteri)<input type="password" name="password" minlength="8" autocomplete="new-password" required></label>
+    <label>Ripeti password *<input type="password" name="conferma" minlength="8" autocomplete="new-password" required></label>
+    <button class="btn grande" type="submit">Invia richiesta</button>
+  </form>
+  <p class="meta"><a href="{{ url_for('login') }}">Hai già un account? Accedi</a></p>
+  {% endif %}
+</div>
+{% endblock %}
