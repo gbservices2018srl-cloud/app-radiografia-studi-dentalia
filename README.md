@@ -4,7 +4,7 @@ Check-up iniziale di uno studio dentistico: questionario per aree → grafico a 
 
 ## Accesso e ruoli
 
-- **Amministratore**: vede tutte le valutazioni, filtra per commerciale, crea/disattiva i commerciali e ne reimposta la password (menu → *Commerciali*).
+- **Amministratore**: vede tutte le valutazioni, filtra per commerciale, crea/disattiva i commerciali e ne reimposta la password (pannello */admin*).
 - **Pannello /admin**: attivazione delle richieste di accesso, creazione/disattivazione account, numeri per commerciale.
 - **Commerciale**: vede e crea solo le proprie valutazioni. Il suo nome, telefono ed email compaiono sul report consegnato al cliente.
 
@@ -21,7 +21,7 @@ Il primo amministratore viene creato automaticamente al primo avvio con le varia
 - **Archivio** (scheda *Preventivi*): ricerca, filtro per stato e per commerciale, totali per stato, duplicazione.
   Numerazione automatica per anno (2026/001, 2026/002…).
 - **Stampa**: pagina A4 con intestazione aziendale, dati del consulente, spazio firme → *Stampa / Salva PDF*.
-- **Dati aziendali** (menu → *Dati aziendali*, solo admin): ragione sociale, P. IVA, IBAN, condizioni predefinite.
+- **Dati aziendali** (menu → *Dati aziendali*, solo admin): ragione sociale, P. IVA, codice SDI, IBAN, condizioni predefinite.
 
 Al primo avvio il listino viene precaricato con servizi di esempio: modificali con i tuoi prezzi reali.
 

@@ -9,6 +9,7 @@
       <label>Ragione sociale<input name="ragione_sociale" value="{{ imp.ragione_sociale or '' }}"></label>
       <label>Indirizzo<input name="indirizzo" value="{{ imp.indirizzo or '' }}"></label>
       <label>P. IVA<input name="piva" value="{{ imp.piva or '' }}"></label>
+      <label>Codice SDI<input name="sdi" maxlength="7" value="{{ imp.sdi or '' }}" style="text-transform:uppercase"></label>
       <label>Telefono<input name="telefono" value="{{ imp.telefono or '' }}"></label>
       <label>Email<input type="email" name="email" value="{{ imp.email or '' }}"></label>
       <label>Sito web<input name="sito" value="{{ imp.sito or '' }}"></label>

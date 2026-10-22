@@ -120,6 +120,7 @@ class Impostazioni(db.Model):
     ragione_sociale = db.Column(db.String(200), default="La tua azienda")
     indirizzo = db.Column(db.String(300))
     piva = db.Column(db.String(40))
+    sdi = db.Column(db.String(10))          # codice destinatario fatturazione elettronica
     email = db.Column(db.String(200))
     telefono = db.Column(db.String(40))
     sito = db.Column(db.String(200))
@@ -152,6 +153,23 @@ LISTINO_INIZIALE = [
     ("CO-01", "Audit compliance GDPR e sicurezza", "Verifica documentale e scadenzario", "a corpo", 800, "compliance"),
     ("AF-01", "Affiancamento consulenziale", "Incontro in studio di mezza giornata", "incontro", 350, None),
 ]
+
+
+def completa_dati_azienda():
+    """Aggiornamento una tantum: completa indirizzo e codice SDI di Consulting Sardegna Srl
+    senza toccare dati già modificati a mano."""
+    imp = db.session.get(Impostazioni, 1)
+    if not imp or imp.piva != "04149000921":
+        return
+    cambiato = False
+    if not imp.sdi:
+        imp.sdi = "M5UXCR1"
+        cambiato = True
+    if (imp.indirizzo or "").strip() == "Via delle Orchidee 33":
+        imp.indirizzo = "Via delle Orchidee 33, 09067 Elmas (CA)"
+        cambiato = True
+    if cambiato:
+        db.session.commit()
 
 
 def crea_dati_iniziali():
@@ -199,6 +217,11 @@ with app.app_context():
         print(f"ATTENZIONE: aggiornamento schema non riuscito: {e}", flush=True)
     crea_admin_iniziale()
     crea_dati_iniziali()
+    try:
+        completa_dati_azienda()
+    except Exception as e:
+        db.session.rollback()
+        print(f"ATTENZIONE: completamento dati aziendali non riuscito: {e}", flush=True)
 
 
 # ------------------------------------------------------------------ accesso
@@ -839,7 +862,7 @@ def listino_stato(sid):
 def impostazioni_azienda():
     imp = impostazioni()
     if request.method == "POST":
-        for campo in ("ragione_sociale", "indirizzo", "piva", "email", "telefono", "sito", "iban", "condizioni_default"):
+        for campo in ("ragione_sociale", "indirizzo", "piva", "sdi", "email", "telefono", "sito", "iban", "condizioni_default"):
             setattr(imp, campo, request.form.get(campo, "").strip())
         imp.validita_default = int(a_numero(request.form.get("validita_default"), 30))
         db.session.commit()

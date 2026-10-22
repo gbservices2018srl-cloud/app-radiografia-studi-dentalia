@@ -70,7 +70,7 @@
       <img class="logo" src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia">
       <b>{{ imp.ragione_sociale }}</b>
       {% if imp.indirizzo %}{{ imp.indirizzo }}<br>{% endif %}
-      {% if imp.piva %}P. IVA {{ imp.piva }}<br>{% endif %}
+      {% if imp.piva %}P. IVA {{ imp.piva }}{% if imp.sdi %} · SDI {{ imp.sdi | upper }}{% endif %}<br>{% endif %}
       {{ [imp.telefono, imp.email, imp.sito] | select | join(' · ') }}
     </div>
     <div class="doc">

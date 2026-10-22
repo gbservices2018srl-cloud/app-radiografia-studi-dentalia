@@ -152,6 +152,25 @@ class TestApp(unittest.TestCase):
         r = m.app.test_client().post("/login", data={"email": "admin@test.it", "password": "admin-test-123"})
         self.assertTrue(r.location.endswith("/admin"))
 
+    def test_14_dati_azienda_e_sdi(self):
+        with m.app.app_context():
+            imp = m.impostazioni()
+            imp.piva, imp.indirizzo, imp.sdi = "04149000921", "Via delle Orchidee 33", None
+            m.db.session.commit()
+            m.completa_dati_azienda()
+            imp = m.impostazioni()
+            self.assertEqual(imp.sdi, "M5UXCR1")
+            self.assertEqual(imp.indirizzo, "Via delle Orchidee 33, 09067 Elmas (CA)")
+            # un secondo avvio non sovrascrive modifiche fatte a mano
+            imp.indirizzo = "Indirizzo cambiato a mano"
+            m.db.session.commit()
+            m.completa_dati_azienda()
+            self.assertEqual(m.impostazioni().indirizzo, "Indirizzo cambiato a mano")
+        self.admin.post("/impostazioni", data={"ragione_sociale": "CONSULTING SARDEGNA SRL", "piva": "04149000921",
+                                               "sdi": "M5UXCR1", "validita_default": "15"})
+        pagina = self.admin.get("/impostazioni").get_data(as_text=True)
+        self.assertIn("M5UXCR1", pagina)
+
     def test_10_listino_iniziale(self):
         with m.app.app_context():
             self.assertGreater(m.Servizio.query.count(), 5)
