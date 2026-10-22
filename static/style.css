@@ -272,3 +272,4 @@ a.kpi-box { color: var(--testo); }
 .firma-brand img { height: 28px; vertical-align: middle; opacity: .9; }
 @media print { .solo-stampa { display: block; } .intestazione-report { break-after: avoid; } }
 @media (max-width: 600px) { .intestazione-report img { height: 48px; } .intestazione-report .tit { font-size: .66rem; } }
+.torna-sito { margin-top: 18px; }

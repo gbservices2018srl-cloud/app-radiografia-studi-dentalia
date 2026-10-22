@@ -172,6 +172,20 @@ def completa_dati_azienda():
         db.session.commit()
 
 
+def pulizia_dati_prova():
+    """Pulizia una tantum (richiesta del 22/10/2026): elimina l'utente di prova e i suoi dati."""
+    u = Utente.query.filter_by(email="prova@gmail.com").first()
+    if not u or u.is_admin:
+        return
+    for p in Preventivo.query.filter_by(utente_id=u.id).all():
+        db.session.delete(p)
+    for v in Valutazione.query.filter_by(utente_id=u.id).all():
+        db.session.delete(v)
+    db.session.flush()
+    db.session.delete(u)
+    db.session.commit()
+
+
 def crea_dati_iniziali():
     impostazioni()
     if not Servizio.query.first():
@@ -219,6 +233,7 @@ with app.app_context():
     crea_dati_iniziali()
     try:
         completa_dati_azienda()
+        pulizia_dati_prova()
     except Exception as e:
         db.session.rollback()
         print(f"ATTENZIONE: completamento dati aziendali non riuscito: {e}", flush=True)
@@ -315,6 +330,13 @@ def registrati():
             db.session.commit()
             return render_template("registrati.html", inviata=True)
     return render_template("registrati.html", inviata=False)
+
+
+@app.route("/area-privata")
+@app.route("/area-privata/")
+def area_privata():
+    """Indirizzo da collegare alla voce "Area privata" del sito dentaliagroup.it."""
+    return redirect(url_for("admin") if g.utente and g.utente.is_admin else url_for("index") if g.utente else url_for("login"))
 
 
 @app.route("/logout")

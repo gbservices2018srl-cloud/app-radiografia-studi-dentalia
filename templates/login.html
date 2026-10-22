@@ -1,15 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Accedi — Radiografia Studio{% endblock %}
+{% block title %}Area privata{% endblock %}
 {% block content %}
 <div class="login-box">
-  <img class="logo-login" src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia — Studi indipendenti. Più forti. Insieme.">
-  <h1>Radiografia Studio</h1>
-  <p class="meta">Area riservata ai commerciali</p>
+  <a href="https://www.dentaliagroup.it/" aria-label="Torna al sito Dentalia">
+    <img class="logo-login" src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia — Studi indipendenti. Più forti. Insieme.">
+  </a>
+  <h1>Area privata</h1>
+  <p class="meta">Accesso riservato al team Dentalia</p>
   <form method="post" class="card">
     <label>Email<input type="email" name="email" autocomplete="username" required autofocus></label>
     <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
     <button class="btn grande" type="submit">Accedi</button>
   </form>
   <p class="meta">Non hai ancora un account? <a href="{{ url_for('registrati') }}">Richiedi l'accesso</a></p>
+  <p class="meta torna-sito"><a href="https://www.dentaliagroup.it/">← Torna a dentaliagroup.it</a></p>
 </div>
 {% endblock %}

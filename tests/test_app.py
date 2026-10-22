@@ -171,6 +171,21 @@ class TestApp(unittest.TestCase):
         pagina = self.admin.get("/impostazioni").get_data(as_text=True)
         self.assertIn("M5UXCR1", pagina)
 
+    def test_15_area_privata_e_pulizia(self):
+        self.assertTrue(m.app.test_client().get("/area-privata").location.endswith("/login"))
+        self.assertTrue(self.admin.get("/area-privata/").location.endswith("/admin"))
+        self.assertIn("Area privata", m.app.test_client().get("/login").get_data(as_text=True))
+        prova = m.app.test_client()
+        self.admin.post("/admin/utenti", data={"nome": "Prova", "email": "prova@gmail.com",
+                                               "password": "password123", "ruolo": "commerciale"})
+        prova.post("/login", data={"email": "prova@gmail.com", "password": "password123"})
+        prova.post("/nuova", data={"studio": "Studio di prova", **risposte(3)})
+        with m.app.app_context():
+            m.pulizia_dati_prova()
+            self.assertIsNone(m.Utente.query.filter_by(email="prova@gmail.com").first())
+            self.assertFalse([v for v in m.Valutazione.query.all() if v.studio == "Studio di prova"])
+            self.assertIsNotNone(m.Utente.query.filter_by(email="admin@test.it").first())
+
     def test_10_listino_iniziale(self):
         with m.app.app_context():
             self.assertGreater(m.Servizio.query.count(), 5)
