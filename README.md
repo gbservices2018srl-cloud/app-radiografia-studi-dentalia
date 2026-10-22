@@ -58,21 +58,12 @@ python app.py
 ```
 Apri http://127.0.0.1:5000 . In locale i dati vanno in un file SQLite (`instance/radiografia.db`).
 
-## Mettere online (GitHub + Render)
+## Online
 
-1. Crea un repository su GitHub e carica questi file:
-   ```bash
-   git init && git add . && git commit -m "Prototipo radiografia studio"
-   git branch -M main
-   git remote add origin https://github.com/TUO-UTENTE/radiografia-studio.git
-   git push -u origin main
-   ```
-2. Su render.com → **New → Blueprint** → collega il repository.
-   Render legge `render.yaml` e crea da solo la web app e il database Postgres.
-   Durante la creazione ti chiede `ADMIN_EMAIL` e `ADMIN_PASSWORD`: sono le credenziali del tuo primo accesso.
-3. A ogni `git push` Render ripubblica automaticamente.
-
-> Nota: il database Postgres gratuito di Render scade dopo 30 giorni. Per conservare i dati in modo stabile passa al piano a pagamento del database (pochi euro al mese).
+- App: https://radiografia-studio.onrender.com (Render, autodeploy a ogni push su `main`)
+- Ingresso dal sito dentaliagroup.it: `/area-privata` → dominio previsto `area.dentaliagroup.it`
+- Database: Postgres su Render (`radiografia-db`) — il piano gratuito scade dopo 30 giorni: passarlo a pagamento.
+- Contesto completo per chi sviluppa: vedi `CLAUDE.md`.
 
 ## Test automatici
 
