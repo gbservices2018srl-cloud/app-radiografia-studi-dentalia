@@ -11,9 +11,10 @@ Puoi aggiungere pesi, correlazioni tra domande, soglie ecc. senza toccare altro.
 from questions import AREAS
 
 
-def calcola(risposte: dict) -> dict:
+def calcola(risposte: dict, aree=None) -> dict:
+    """aree: le aree in uso (dalla pagina Domande); se mancano valgono quelle iniziali."""
     punteggi = {}
-    for area in AREAS:
+    for area in (aree if aree is not None else AREAS):
         valori = [int(risposte[d["id"]]) for d in area["domande"] if d["id"] in risposte]
         if not valori:
             punteggi[area["id"]] = 0

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Domande della radiografia{% endblock %}
+{% block content %}
+{% macro ico(nome) -%}
+<svg class="dq-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if nome == 'su' %}<path d="M12 19V5M5 12l7-7 7 7"/>
+{%- elif nome == 'giu' %}<path d="M12 5v14M19 12l-7 7-7-7"/>
+{%- elif nome == 'via' %}<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>
+{%- elif nome == 'piu' %}<path d="M12 5v14M5 12h14"/>
+{%- elif nome == 'info' %}<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>
+{%- elif nome == 'domanda' %}<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17v.5"/>
+{%- elif nome == 'azione' %}<path d="M5 12l4 4 10-10"/>
+{%- elif nome == 'radar' %}<path d="M12 3l8 6-3 10H7L4 9z"/><path d="M12 8l4 3-1.5 5h-5L8 11z"/>
+{%- elif nome == 'salva' %}<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>
+{%- endif %}</svg>
+{%- endmacro %}
+
+<div class="titolo-riga">
+  <div>
+    <h1>{{ ico('domanda') }} Domande della radiografia</h1>
+    <p class="meta">Aree, domande e azioni suggerite che i commerciali vedono quando fanno una radiografia.{% if q %} Ultima modifica: {{ q.modificato_il | ora_locale }}{% if q.modificato_da %} · {{ q.modificato_da }}{% endif %}.{% else %} Ora sono attive le domande iniziali.{% endif %}</p>
+  </div>
+  <a class="btn sec-btn piccolo" href="{{ url_for('admin') }}">← Pannello admin</a>
+</div>
+
+<div class="dq-info">
+  {{ ico('info') }}
+  <div>
+    <p><strong>Come funziona.</strong> Ogni area diventa una punta del grafico a ragno e ha le sue domande (voto da 1 a 5) e le azioni consigliate che compaiono nel report quando l'area è debole.</p>
+    <p>Le modifiche valgono per le <strong>nuove</strong> radiografie: quelle già fatte conservano le domande con cui sono state compilate, quindi i loro report non cambiano.</p>
+  </div>
+</div>
+
+<noscript><div class="avviso">Per modificare le domande serve JavaScript attivo nel browser.</div></noscript>
+
+<form method="post" id="dq-form">
+  <input type="hidden" name="dati" id="dq-dati">
+  <div id="dq-aree"></div>
+
+  <button type="button" class="btn sec-btn dq-agg-area" id="dq-agg-area">{{ ico('piu') }} Aggiungi un'area</button>
+
+  <div class="dq-barra">
+    <span id="dq-conta"></span>
+    <button class="btn oro" type="submit">{{ ico('salva') }} Salva le domande</button>
+  </div>
+</form>
+
+<section class="card dq-ripristina">
+  <h2>Tornare alle domande iniziali</h2>
+  <p class="meta">Rimette le 8 aree di esempio con cui è nata l'app. Le radiografie già fatte non cambiano.</p>
+  <form method="post" action="{{ url_for('admin_domande_ripristina') }}" onsubmit="return confirm('Ripristinare le domande iniziali? Le domande attuali verranno sostituite.')">
+    <button class="btn secondario" type="submit">Ripristina le domande iniziali</button>
+  </form>
+</section>
+
+<template id="tpl-ico-su">{{ ico('su') }}</template>
+<template id="tpl-ico-giu">{{ ico('giu') }}</template>
+<template id="tpl-ico-via">{{ ico('via') }}</template>
+<template id="tpl-ico-piu">{{ ico('piu') }}</template>
+<template id="tpl-ico-domanda">{{ ico('domanda') }}</template>
+<template id="tpl-ico-azione">{{ ico('azione') }}</template>
+<template id="tpl-ico-radar">{{ ico('radar') }}</template>
+<script id="dq-iniziali" type="application/json">{{ aree | tojson }}</script>
+<script id="dq-collegati" type="application/json">{{ collegati | tojson }}</script>
+<script>
+(function () {
+  const aree = JSON.parse(document.getElementById('dq-iniziali').textContent);
+  const collegati = JSON.parse(document.getElementById('dq-collegati').textContent);
+  const box = document.getElementById('dq-aree');
+  const ico = n => document.getElementById('tpl-ico-' + n).innerHTML;
+  let modificato = false;
+
+  function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function bottone(icona, titolo, fn, cls) {
+    const b = el('button', 'dq-btn ' + (cls || ''), ico(icona)); b.type = 'button'; b.title = titolo; b.setAttribute('aria-label', titolo);
+    b.addEventListener('click', fn); return b;
+  }
+  function sposta(lista, i, d) { const j = i + d; if (j < 0 || j >= lista.length) return; [lista[i], lista[j]] = [lista[j], lista[i]]; cambia(); }
+  function cambia() { modificato = true; disegna(); }
+
+  function riga(lista, i, campo, segnaposto, icona, area) {
+    const r = el('div', 'dq-riga');
+    r.appendChild(el('span', 'dq-num', icona ? ico(icona) : String(i + 1)));
+    const t = el('textarea'); t.rows = 1; t.placeholder = segnaposto;
+    t.value = campo ? lista[i][campo] : lista[i];
+    t.addEventListener('input', () => { if (campo) lista[i][campo] = t.value; else lista[i] = t.value; modificato = true; autoalt(t); conta(); });
+    r.appendChild(t);
+    const az = el('div', 'dq-az');
+    az.appendChild(bottone('su', 'Sposta su', () => sposta(lista, i, -1)));
+    az.appendChild(bottone('giu', 'Sposta giù', () => sposta(lista, i, 1)));
+    az.appendChild(bottone('via', 'Elimina', () => { lista.splice(i, 1); cambia(); }, 'rosso'));
+    r.appendChild(az);
+    requestAnimationFrame(() => autoalt(t));
+    return r;
+  }
+  function autoalt(t) { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; }
+
+  function disegna() {
+    box.innerHTML = '';
+    aree.forEach((a, i) => {
+      a.domande = a.domande || []; a.azioni = a.azioni || [];
+      const c = el('section', 'card dq-area');
+      const testa = el('div', 'dq-testa');
+      testa.appendChild(el('span', 'dq-n', String(i + 1)));
+      const campi = el('div', 'dq-campi');
+      const lNome = el('label', '', 'Nome dell’area'); const iNome = el('input'); iNome.value = a.nome || ''; iNome.placeholder = 'Es. Marketing e acquisizione';
+      iNome.addEventListener('input', () => { a.nome = iNome.value; modificato = true; }); lNome.appendChild(iNome);
+      const lBreve = el('label', '', ico('radar') + ' Etichetta nel grafico'); const iBreve = el('input'); iBreve.value = a.breve || ''; iBreve.maxLength = 24; iBreve.placeholder = 'Es. Marketing';
+      iBreve.addEventListener('input', () => { a.breve = iBreve.value; modificato = true; }); lBreve.appendChild(iBreve);
+      campi.appendChild(lNome); campi.appendChild(lBreve);
+      testa.appendChild(campi);
+      const az = el('div', 'dq-az');
+      az.appendChild(bottone('su', 'Sposta l’area su', () => sposta(aree, i, -1)));
+      az.appendChild(bottone('giu', 'Sposta l’area giù', () => sposta(aree, i, 1)));
+      az.appendChild(bottone('via', 'Elimina l’area', () => {
+        const n = collegati[a.id] || 0;
+        const msg = 'Eliminare l’area «' + (a.nome || 'senza nome') + '» con le sue domande?' + (n ? '\n\nAttenzione: ' + n + ' voce/i del listino sono collegate a quest’area e resteranno senza area.' : '');
+        if (confirm(msg)) { aree.splice(i, 1); cambia(); }
+      }, 'rosso'));
+      testa.appendChild(az);
+      c.appendChild(testa);
+      if (a.id && collegati[a.id]) c.appendChild(el('p', 'meta dq-coll', 'Collegata a ' + collegati[a.id] + ' voce/i del listino.'));
+
+      c.appendChild(el('h3', 'dq-sotto', ico('domanda') + ' Domande <small>(voto da 1 a 5)</small>'));
+      const ld = el('div', 'dq-lista');
+      a.domande.forEach((d, j) => ld.appendChild(riga(a.domande, j, 'testo', 'Scrivi la domanda…')));
+      c.appendChild(ld);
+      c.appendChild(bottone('piu', 'Aggiungi domanda', () => { a.domande.push({ testo: '' }); cambia(); }, 'dq-agg')).insertAdjacentText('beforeend', ' Aggiungi domanda');
+
+      c.appendChild(el('h3', 'dq-sotto', ico('azione') + ' Azioni suggerite nel report'));
+      const la = el('div', 'dq-lista');
+      a.azioni.forEach((x, j) => la.appendChild(riga(a.azioni, j, null, 'Es. Introdurre un sistema di richiami…', 'azione')));
+      c.appendChild(la);
+      c.appendChild(bottone('piu', 'Aggiungi azione', () => { a.azioni.push(''); cambia(); }, 'dq-agg')).insertAdjacentText('beforeend', ' Aggiungi azione');
+      box.appendChild(c);
+    });
+    conta();
+  }
+  function conta() {
+    const n = aree.reduce((s, a) => s + a.domande.filter(d => (d.testo || '').trim()).length, 0);
+    document.getElementById('dq-conta').textContent = aree.length + ' aree · ' + n + ' domande';
+  }
+  document.getElementById('dq-agg-area').addEventListener('click', () => {
+    aree.push({ nome: '', breve: '', domande: [{ testo: '' }], azioni: [''] }); cambia();
+    requestAnimationFrame(() => { const c = box.lastElementChild; if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.querySelector('input').focus(); } });
+  });
+  document.getElementById('dq-form').addEventListener('submit', e => {
+    document.getElementById('dq-dati').value = JSON.stringify(aree);
+    modificato = false;
+  });
+  window.addEventListener('beforeunload', e => { if (modificato) { e.preventDefault(); e.returnValue = ''; } });
+  disegna();
+})();
+</script>
+{% endblock %}

@@ -191,5 +191,82 @@ class TestApp(unittest.TestCase):
             self.assertGreater(m.Servizio.query.count(), 5)
 
 
+    def test_16_pagina_domande(self):
+        # solo l'admin la vede
+        self.assertEqual(self.marco.get("/admin/domande").status_code, 403)
+        pagina = self.admin.get("/admin/domande").get_data(as_text=True)
+        self.assertIn("Domande della radiografia", pagina)
+
+        # radiografia fatta con le domande di adesso
+        r = self.marco.post("/nuova", data={"studio": "Studio Prima", **risposte(3)})
+        vid_prima = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        nome_prima = m.AREE_INIZIALI[0]["nome"]
+
+        # l'admin cambia le domande: rinomina la prima area, toglie l'ultima, ne aggiunge una nuova
+        aree = json.loads(json.dumps(m.AREE_INIZIALI))
+        aree[0]["nome"] = "Area Rinominata Test"
+        aree[0]["domande"][0]["testo"] = "Domanda cambiata dal pannello?"
+        aree.pop()
+        aree.append({"nome": "Area Extra Test", "breve": "Extra", "domande": [{"testo": "Domanda extra test?"}],
+                     "azioni": ["Azione extra test"]})
+        r = self.admin.post("/admin/domande", data={"dati": json.dumps(aree)})
+        self.assertEqual(r.status_code, 302)
+        with m.app.app_context():
+            nuove = m.aree_correnti()
+        self.assertEqual(nuove[0]["nome"], "Area Rinominata Test")
+        self.assertEqual(nuove[-1]["nome"], "Area Extra Test")
+        self.assertTrue(nuove[-1]["id"] and nuove[-1]["domande"][0]["id"])
+        self.assertEqual(len(nuove), len(m.AREE_INIZIALI))
+
+        # i commerciali vedono le domande nuove e la radiografia nuova le usa
+        form = self.marco.get("/nuova").get_data(as_text=True)
+        self.assertIn("Domanda extra test?", form)
+        self.assertIn("Domanda cambiata dal pannello?", form)
+        tutte = {d["id"]: "5" for a in nuove for d in a["domande"]}
+        r = self.marco.post("/nuova", data={"studio": "Studio Dopo", **tutte})
+        vid_dopo = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        with m.app.app_context():
+            v = m.db.session.get(m.Valutazione, vid_dopo)
+            self.assertEqual(json.loads(v.punteggi)[nuove[-1]["id"]], 100)
+        dopo = self.marco.get(f"/valutazione/{vid_dopo}").get_data(as_text=True)
+        self.assertIn("Area Extra Test", dopo)
+
+        # la radiografia vecchia resta con le domande di allora
+        prima = self.marco.get(f"/valutazione/{vid_prima}").get_data(as_text=True)
+        self.assertIn(nome_prima, prima)
+        self.assertNotIn("Area Extra Test", prima)
+
+        # dati non validi: area senza nome, meno di 3 aree -> non salva
+        sbagliate = json.loads(json.dumps(nuove))
+        sbagliate[1]["nome"] = ""
+        r = self.admin.post("/admin/domande", data={"dati": json.dumps(sbagliate)}, follow_redirects=True)
+        self.assertIn("non ha un nome", r.get_data(as_text=True))
+        r = self.admin.post("/admin/domande", data={"dati": json.dumps(nuove[:2])}, follow_redirects=True)
+        self.assertIn("almeno 3 aree", r.get_data(as_text=True))
+        with m.app.app_context():
+            self.assertEqual(m.aree_correnti()[0]["nome"], "Area Rinominata Test")
+
+        # il commerciale non può modificarle
+        self.assertEqual(self.marco.post("/admin/domande", data={"dati": json.dumps(nuove)}).status_code, 403)
+        self.assertEqual(self.marco.post("/admin/domande/ripristina").status_code, 403)
+
+        # ripristino delle domande iniziali
+        self.admin.post("/admin/domande/ripristina")
+        with m.app.app_context():
+            self.assertEqual(m.aree_correnti(), m.AREE_INIZIALI)
+        self.assertIn("Area Extra Test", self.marco.get(f"/valutazione/{vid_dopo}").get_data(as_text=True))
+
+    def test_17_radiografie_vecchie_conservano_le_domande(self):
+        with m.app.app_context():
+            u = m.Utente.query.filter_by(email="marco@test.it").first()
+            v = m.Valutazione(utente_id=u.id, studio="Studio Storico", risposte="{}", punteggi="{}")
+            m.db.session.add(v)
+            m.db.session.commit()
+            vid = v.id
+            m.fissa_questionario_radiografie()
+            v = m.db.session.get(m.Valutazione, vid)
+            self.assertEqual(json.loads(v.questionario), m.AREE_INIZIALI)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

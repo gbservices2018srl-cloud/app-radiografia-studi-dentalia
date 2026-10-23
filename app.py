@@ -1,15 +1,19 @@
+import copy
 import json
 import math
 import os
+import re
+import unicodedata
 from datetime import datetime
 from functools import wraps
 
-from flask import (Flask, abort, flash, g, redirect, render_template, request,
+from flask import (Flask, abort, flash, g, has_request_context, redirect, render_template, request,
                    session, url_for)
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from questions import AREAS, SCALE
+from questions import AREAS as AREE_INIZIALI, SCALE
+AREAS = AREE_INIZIALI   # nome storico (test): le aree in uso sono in aree_correnti()
 from scoring import calcola, livello
 
 app = Flask(__name__)
@@ -69,6 +73,7 @@ class Valutazione(db.Model):
     note = db.Column(db.Text)
     risposte = db.Column(db.Text, nullable=False)   # JSON
     punteggi = db.Column(db.Text, nullable=False)   # JSON
+    questionario = db.Column(db.Text)               # JSON: copia delle aree/domande usate per questa radiografia
     creata_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -131,6 +136,36 @@ class Impostazioni(db.Model):
     validita_default = db.Column(db.Integer, default=30)
 
 
+class Questionario(db.Model):
+    """Aree, domande e azioni della radiografia, modificabili da /admin/domande (riga unica id=1).
+    Se la riga non esiste valgono quelle iniziali di questions.py."""
+    id = db.Column(db.Integer, primary_key=True)
+    contenuto = db.Column(db.Text, nullable=False)   # JSON: lista di aree
+    modificato_il = db.Column(db.DateTime, default=datetime.utcnow)
+    modificato_da = db.Column(db.String(120))
+
+
+def aree_correnti():
+    """Le aree in uso adesso (dal database, altrimenti quelle iniziali)."""
+    if has_request_context() and "aree" in g:
+        return g.aree
+    q = db.session.get(Questionario, 1)
+    aree = json.loads(q.contenuto) if q else copy.deepcopy(AREE_INIZIALI)
+    if has_request_context():
+        g.aree = aree
+    return aree
+
+
+def aree_di(v):
+    """Le aree con cui è stata compilata una radiografia (così i report vecchi non cambiano)."""
+    if v.questionario:
+        try:
+            return json.loads(v.questionario)
+        except ValueError:
+            pass
+    return aree_correnti()
+
+
 def impostazioni():
     imp = db.session.get(Impostazioni, 1)
     if not imp:
@@ -186,6 +221,18 @@ def pulizia_dati_prova():
     db.session.commit()
 
 
+def fissa_questionario_radiografie():
+    """Le radiografie fatte prima della pagina Domande sono state compilate con le domande iniziali:
+    ne salva la copia, così restano identiche anche se le domande cambiano."""
+    vecchie = Valutazione.query.filter(Valutazione.questionario.is_(None)).all()
+    if not vecchie:
+        return
+    copia = json.dumps(AREE_INIZIALI, ensure_ascii=False)
+    for v in vecchie:
+        v.questionario = copia
+    db.session.commit()
+
+
 def crea_dati_iniziali():
     impostazioni()
     if not Servizio.query.first():
@@ -234,6 +281,7 @@ with app.app_context():
     try:
         completa_dati_azienda()
         pulizia_dati_prova()
+        fissa_questionario_radiografie()
     except Exception as e:
         db.session.rollback()
         print(f"ATTENZIONE: completamento dati aziendali non riuscito: {e}", flush=True)
@@ -490,10 +538,11 @@ def index():
 @app.route("/nuova", methods=["GET", "POST"])
 @login_richiesto
 def nuova():
+    aree = aree_correnti()
     if request.method == "POST":
         risposte = {
             d["id"]: request.form.get(d["id"])
-            for a in AREAS for d in a["domande"]
+            for a in aree for d in a["domande"]
             if request.form.get(d["id"])
         }
         v = Valutazione(
@@ -505,12 +554,13 @@ def nuova():
             telefono_cliente=request.form.get("telefono_cliente", "").strip(),
             note=request.form.get("note", "").strip(),
             risposte=json.dumps(risposte),
-            punteggi=json.dumps(calcola(risposte)),
+            punteggi=json.dumps(calcola(risposte, aree)),
+            questionario=json.dumps(aree, ensure_ascii=False),
         )
         db.session.add(v)
         db.session.commit()
         return redirect(url_for("risultato", vid=v.id))
-    return render_template("nuova.html", aree=AREAS, scala=SCALE)
+    return render_template("nuova.html", aree=aree, scala=SCALE)
 
 
 @app.route("/valutazione/<int:vid>")
@@ -519,7 +569,7 @@ def risultato(vid):
     v = valutazione_visibile(vid)
     punteggi = json.loads(v.punteggi)
     report = []
-    for area in AREAS:
+    for area in aree_di(v):
         s = punteggi.get(area["id"], 0)
         etichetta, classe = livello(s)
         report.append({
@@ -682,7 +732,7 @@ def suggerimenti_da_valutazione(v):
     punteggi = json.loads(v.punteggi)
     servizi = [s for s in Servizio.query.all() if s.attivo]
     aree = []
-    for a in AREAS:
+    for a in aree_di(v):
         s_area = [riga_da_servizio(s) for s in servizi if s.area_id == a["id"]]
         if not s_area:
             continue
@@ -867,7 +917,7 @@ def listino():
         flash("Listino aggiornato.")
         return redirect(url_for("listino"))
     servizi = sorted(Servizio.query.all(), key=lambda s: (not s.attivo, s.codice or ""))
-    return render_template("listino.html", servizi=servizi, aree=AREAS)
+    return render_template("listino.html", servizi=servizi, aree=aree_correnti())
 
 
 @app.post("/listino/<int:sid>/stato")
@@ -877,6 +927,105 @@ def listino_stato(sid):
     s.attivo = not s.attivo
     db.session.commit()
     return redirect(url_for("listino"))
+
+
+# ------------------------------------------------------------------ domande della radiografia (solo admin)
+def _slug(testo):
+    t = unicodedata.normalize("NFKD", testo or "").encode("ascii", "ignore").decode().lower()
+    t = re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+    return t[:30] or "area"
+
+
+_ID_OK = re.compile(r"^[a-z0-9_-]{1,40}$")
+
+
+def valida_questionario(dati):
+    """Controlla e normalizza le aree inviate dalla pagina Domande. Restituisce (aree, errore)."""
+    if not isinstance(dati, list):
+        return None, "Dati non validi."
+    aree, id_aree, id_domande = [], set(), set()
+    for i, a in enumerate(dati, 1):
+        if not isinstance(a, dict):
+            return None, "Dati non validi."
+        nome = str(a.get("nome", "")).strip()
+        if not nome:
+            return None, f"L'area n. {i} non ha un nome."
+        breve = str(a.get("breve", "")).strip() or nome
+        aid = str(a.get("id", "")).strip()
+        if not _ID_OK.match(aid) or aid in id_aree:
+            base = _slug(nome)
+            aid, n = base, 2
+            while aid in id_aree:
+                aid, n = f"{base}_{n}", n + 1
+        id_aree.add(aid)
+        domande = []
+        for d in a.get("domande") or []:
+            testo = str((d or {}).get("testo", "")).strip() if isinstance(d, dict) else ""
+            if not testo:
+                continue
+            did = str(d.get("id", "")).strip()
+            if not _ID_OK.match(did) or did in id_domande:
+                n = 1
+                did = f"{aid}_{n}"
+                while did in id_domande:
+                    n += 1
+                    did = f"{aid}_{n}"
+            id_domande.add(did)
+            domande.append({"id": did, "testo": testo[:500]})
+        if not domande:
+            return None, f"L'area «{nome}» non ha domande: aggiungine almeno una."
+        azioni = [str(x).strip()[:500] for x in (a.get("azioni") or []) if str(x).strip()]
+        aree.append({"id": aid, "breve": breve[:24], "nome": nome[:120], "domande": domande, "azioni": azioni})
+    if len(aree) < 3:
+        return None, "Servono almeno 3 aree perché il grafico a ragno si possa disegnare."
+    return aree, None
+
+
+@app.route("/admin/domande", methods=["GET", "POST"])
+@admin_richiesto
+def admin_domande():
+    if request.method == "POST":
+        try:
+            dati = json.loads(request.form.get("dati", ""))
+        except ValueError:
+            dati = None
+        aree, errore = valida_questionario(dati)
+        if errore:
+            flash(errore + " Le modifiche non sono state salvate.")
+            return redirect(url_for("admin_domande"))
+        vecchi = {a["id"]: a["nome"] for a in aree_correnti()}
+        tolte = [vecchi[k] for k in vecchi if k not in {a["id"] for a in aree}]
+        q = db.session.get(Questionario, 1) or Questionario(id=1)
+        q.contenuto = json.dumps(aree, ensure_ascii=False)
+        q.modificato_il = datetime.utcnow()
+        q.modificato_da = g.utente.nome
+        db.session.add(q)
+        db.session.commit()
+        g.pop("aree", None)
+        n = sum(len(a["domande"]) for a in aree)
+        messaggio = f"Domande salvate: {len(aree)} aree e {n} domande. Valgono da subito per le nuove radiografie."
+        if tolte:
+            messaggio += " Aree rimosse: " + ", ".join(tolte) + " (le voci di listino collegate restano senza area)."
+        flash(messaggio)
+        return redirect(url_for("admin_domande"))
+    q = db.session.get(Questionario, 1)
+    collegati = {}
+    for s in Servizio.query.all():
+        if s.area_id:
+            collegati[s.area_id] = collegati.get(s.area_id, 0) + 1
+    return render_template("domande.html", aree=aree_correnti(), scala=SCALE, q=q, collegati=collegati)
+
+
+@app.post("/admin/domande/ripristina")
+@admin_richiesto
+def admin_domande_ripristina():
+    q = db.session.get(Questionario, 1)
+    if q:
+        db.session.delete(q)
+        db.session.commit()
+    g.pop("aree", None)
+    flash("Ripristinate le domande iniziali.")
+    return redirect(url_for("admin_domande"))
 
 
 @app.route("/impostazioni", methods=["GET", "POST"])
