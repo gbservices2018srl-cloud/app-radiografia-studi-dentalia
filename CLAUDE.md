@@ -9,16 +9,17 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 - Render, workspace "Giancarlo's workspace" (`tea-d9tjmovqj5pc73fqaevg`)
   - web service `radiografia-studio` (`srv-dau0qkrncjis73aaqrfg`), piano free, region oregon, autodeploy a ogni push su main
   - database `radiografia-db` (`dpg-dau0qabncjis73aapn8g-a`), Postgres 18, **piano free: scade il 29/10/2026 alle 21:10 (ora italiana)** → va fatto l'upgrade (Basic-256mb) entro il 28/10 dal dashboard Render (i tool MCP Render non cambiano il piano)
-- URL: https://radiografia-studio.onrender.com — ingresso dal sito: `/area-privata` (porta al login o al pannello)
-- Dominio previsto: `area.dentaliagroup.it` (CNAME su Aruba → radiografia-studio.onrender.com + Custom Domain su Render)
+- URL: **https://area.dentaliagroup.it** (Custom Domain verificato su Render il 23/10/2026; CNAME `area` su Aruba → radiografia-studio.onrender.com). Resta valido anche https://radiografia-studio.onrender.com
+- Ingresso dal sito: pagina www.dentaliagroup.it/accesso-privato/ (voce "Accesso" col lucchetto nel menu) → `/area-privata` (login o pannello) e `/registrati`
 - Sito pubblico: www.dentaliagroup.it, sito statico su misura ospitato su Aruba (non su GitHub)
 
 ## Struttura
 - `app.py` — modelli (Utente, Valutazione, Servizio, Preventivo, Impostazioni), login/ruoli, /admin, radiografie, preventivi, listino, dati aziendali
-- `questions.py` — aree/domande/azioni (8 aree × 4 domande, testi DI ESEMPIO, da sostituire con quelli dell'utente); `breve` = etichetta del radar
-- `scoring.py` — `calcola(risposte) -> {area_id: 0-100}` (ora media semplice: l'algoritmo vero lo fornirà l'utente) e `livello()` (<50 critico, <75 da migliorare)
+- `questions.py` — **domande iniziali** (8 aree × 4 domande di esempio). Le domande in uso stanno nel DB, modello `Questionario` (riga id=1, JSON), modificabili dall'admin in **/admin/domande** (`templates/domande.html`); senza riga valgono quelle di questions.py. Usare sempre `aree_correnti()` (domande attuali) o `aree_di(v)` (domande con cui è stata fatta la radiografia v), mai `AREAS` direttamente
+- `Valutazione.questionario` = copia JSON delle aree usate per quella radiografia: i report vecchi non cambiano se le domande cambiano (le radiografie precedenti al 23/10 ricevono all'avvio la copia delle domande iniziali, `fissa_questionario_radiografie()`)
+- `scoring.py` — `calcola(risposte, aree) -> {area_id: 0-100}` (ora media semplice: l'algoritmo vero lo fornirà l'utente) e `livello()` (<50 critico, <75 da migliorare)
 - `templates/`, `static/style.css` (variabili colore in testa), `static/brand/` (loghi Dentalia, favicon)
-- `demo/index.html` — demo offline per smartphone, file unico con domande incorporate (va riallineata se cambiano le domande)
+- `demo/index.html` — demo offline per smartphone, file unico con domande incorporate (NON segue /admin/domande: va riallineata a mano se serve)
 - `tests/test_app.py` — unittest; GitHub Actions li esegue con SQLite e con Postgres reale
 
 ## Regole importanti
@@ -33,6 +34,6 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 
 ## Lavori in sospeso (in ordine)
 1. **Sezione Contratti** (richiesta 22/10): da preventivo "Accettato" → pulsante "Genera contratto"; compilazione automatica con dati azienda + cliente + voci/totali del preventivo + consulente; campi aggiuntivi da compilare = quelli evidenziati in giallo nel modello dell'utente (atteso un .docx con evidenziazioni gialle); firma col dito su smartphone/tablet (canvas) per cliente (ed eventualmente azienda), con data/ora; PDF scaricabile/inviabile; archivio contratti con stato. Ampliare i dati cliente: ragione sociale, P.IVA, CF, indirizzo, CAP, provincia, PEC, SDI, legale rappresentante (+ CF, luogo/data di nascita se servono al modello). Domande aperte all'utente: chi firma (solo cliente o entrambi) e se il cliente firma di persona o tramite link inviato.
-2. Algoritmo di analisi reale (`scoring.py`), domande definitive (`questions.py`), listino reale (ora 11 voci di esempio).
-3. Collegamento dominio `area.dentaliagroup.it` e voce "Area privata" sul sito Aruba (snippet già fornito all'utente).
+2. Algoritmo di analisi reale (`scoring.py`, deve accettare il parametro `aree`), listino reale (ora 11 voci di esempio). Le domande definitive l'utente le inserisce da /admin/domande.
+3. ~~Dominio area.dentaliagroup.it e voce sul sito~~ fatto il 23/10/2026.
 4. Valutare piano Starter per il web service (il free si addormenta dopo 15 minuti: primo accesso lento).
