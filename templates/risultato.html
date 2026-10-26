@@ -67,6 +67,22 @@
 <section class="card"><h2>Note del consulente</h2><p>{{ v.note }}</p></section>
 {% endif %}
 
+{% if note_interne %}
+<section class="card note-interne no-print">
+  <h2><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> Note interne sulle domande</h2>
+  <p class="meta">Visibili solo a te e all'amministratore. Non compaiono nella stampa né nel PDF del report da consegnare.</p>
+  {% for a in note_interne %}
+  <h3>{{ a.nome }}</h3>
+  {% for r in a.righe %}
+  <div class="nota-riga">
+    <p class="nota-dom">{{ r.testo }}{% if r.voto %} <span class="pill">voto {{ r.voto }}</span>{% endif %}</p>
+    <p class="nota-txt">{{ r.nota }}</p>
+  </div>
+  {% endfor %}
+  {% endfor %}
+</section>
+{% endif %}
+
 <p class="firma-brand">Report realizzato da <img src="{{ url_for('static', filename='brand/logo-scritta.png') }}" alt="Dentalia"> · Studi indipendenti. Più forti. Insieme.</p>
 
 <div class="azioni-pagina no-print">

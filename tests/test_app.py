@@ -256,6 +256,22 @@ class TestApp(unittest.TestCase):
             self.assertEqual(m.aree_correnti(), m.AREE_INIZIALI)
         self.assertIn("Area Extra Test", self.marco.get(f"/valutazione/{vid_dopo}").get_data(as_text=True))
 
+    def test_18_note_interne_per_domanda(self):
+        form = self.marco.get("/nuova").get_data(as_text=True)
+        self.assertIn('name="nota_', form)
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        tutte = {d["id"]: "2" for a in aree for d in a["domande"]}
+        qid = aree[0]["domande"][0]["id"]
+        r = self.marco.post("/nuova", data={"studio": "Studio Note", **tutte,
+                                           "nota_" + qid: "Il titolare era scettico sui richiami"})
+        self.assertEqual(r.status_code, 302)
+        pagina = self.marco.get(r.location).get_data(as_text=True)
+        self.assertIn("Il titolare era scettico sui richiami", pagina)
+        self.assertIn("note-interne no-print", pagina)
+        self.assertIn("Il titolare era scettico", self.admin.get(r.location).get_data(as_text=True))
+        self.assertEqual(self.laura.get(r.location).status_code, 403)
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

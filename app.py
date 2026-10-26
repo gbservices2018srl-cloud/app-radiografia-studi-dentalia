@@ -74,6 +74,7 @@ class Valutazione(db.Model):
     risposte = db.Column(db.Text, nullable=False)   # JSON
     punteggi = db.Column(db.Text, nullable=False)   # JSON
     questionario = db.Column(db.Text)               # JSON: copia delle aree/domande usate per questa radiografia
+    note_domande = db.Column(db.Text)               # JSON {domanda_id: nota}: note interne, MAI nel report consegnato
     creata_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -545,6 +546,11 @@ def nuova():
             for a in aree for d in a["domande"]
             if request.form.get(d["id"])
         }
+        note_domande = {
+            d["id"]: request.form.get("nota_" + d["id"], "").strip()
+            for a in aree for d in a["domande"]
+            if request.form.get("nota_" + d["id"], "").strip()
+        }
         v = Valutazione(
             utente_id=g.utente.id,
             studio=request.form["studio"].strip(),
@@ -556,6 +562,7 @@ def nuova():
             risposte=json.dumps(risposte),
             punteggi=json.dumps(calcola(risposte, aree)),
             questionario=json.dumps(aree, ensure_ascii=False),
+            note_domande=json.dumps(note_domande, ensure_ascii=False) if note_domande else None,
         )
         db.session.add(v)
         db.session.commit()
@@ -577,8 +584,19 @@ def risultato(vid):
             "livello": etichetta, "classe": classe, "azioni": area["azioni"],
         })
     priorita = sorted(report, key=lambda r: r["punteggio"])
+    # Note interne per domanda: visibili solo qui (admin e autore), escluse dalla stampa/PDF del report
+    note_interne = []
+    note = json.loads(v.note_domande) if v.note_domande else {}
+    if note:
+        risposte = json.loads(v.risposte)
+        for area in aree_di(v):
+            righe = [{"testo": d["testo"], "voto": risposte.get(d["id"]), "nota": note[d["id"]]}
+                     for d in area["domande"] if note.get(d["id"])]
+            if righe:
+                note_interne.append({"nome": area["nome"], "righe": righe})
     return render_template(
         "risultato.html", v=v, report=report, priorita=priorita, media=media_di(punteggi),
+        note_interne=note_interne,
         radar=radar_svg(report), commerciale=db.session.get(Utente, v.utente_id),
     )
 

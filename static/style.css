@@ -310,3 +310,18 @@ h1 .dq-ico { width: 26px; height: 26px; color: var(--oro); vertical-align: -4px;
   .dq-riga .dq-az { grid-column: 2; justify-content: flex-end; }
   .dq-coll { margin-left: 0; }
 }
+
+/* Note interne per domanda (mai nel report stampato) */
+.nota-domanda { margin-top: 8px; }
+.nota-domanda summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--oro-scuro); font-size: .88rem; font-weight: 500; list-style: none; padding: 4px 0; }
+.nota-domanda summary::-webkit-details-marker { display: none; }
+.nota-domanda summary small { color: #7a8794; font-weight: 400; }
+.nota-domanda[open] summary { color: var(--primario); }
+.nota-domanda textarea { margin-top: 6px; width: 100%; background: var(--oro-chiaro); border: 1px solid var(--oro-bordo); }
+.note-interne { border: 1px dashed var(--oro); background: var(--oro-chiaro); }
+.note-interne h2 { display: flex; align-items: center; gap: 8px; }
+.note-interne h3 { margin: 16px 0 6px; font-size: 1rem; color: var(--primario); }
+.nota-riga { padding: 8px 0; border-top: 1px solid var(--oro-bordo); }
+.nota-dom { margin: 0 0 4px; font-weight: 600; font-size: .92rem; }
+.nota-txt { margin: 0; white-space: pre-wrap; }
+@media print { .note-interne, .nota-domanda { display: none !important; } }
