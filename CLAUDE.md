@@ -7,9 +7,10 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 ## Dove gira
 - Repository: github.com/gbservices2018srl-cloud/app-radiografia-studi-dentalia (branch `main`)
 - Render, workspace "Giancarlo's workspace" (`tea-d9tjmovqj5pc73fqaevg`)
-  - web service `radiografia-studio` (`srv-dau0qkrncjis73aaqrfg`), piano 0.5c-512mb (sempre attivo), region oregon, autodeploy a ogni push su main
-  - database `radiografia-db` (`dpg-dau0qabncjis73aapn8g-a`), Postgres 18, piano a pagamento 0.1c-256mb dal 26/10/2026 (non scade)
-- URL: **https://area.dentaliagroup.it** (Custom Domain verificato su Render il 23/10/2026; CNAME `area` su Aruba → radiografia-studio.onrender.com). Resta valido anche https://radiografia-studio.onrender.com
+  - web service `radiografia-studio-eu` (`srv-dbfja6o473hc73ddc85g`), **Francoforte**, piano 0.5c-512mb (sempre attivo), autodeploy a ogni push su main
+  - database `radiografia-db-eu` (`dpg-dbfj82tg1s2s7381c900-a`), **Francoforte**, Postgres 18, piano 0.1c-256mb. IP allowlist vuota (solo rete interna Render): il tool MCP query_render_postgres non lo raggiunge
+  - Trasloco da Oregon il 26/10/2026 con `migrazione.py` (variabile MIGRA_DA, già rimossa). I vecchi `radiografia-studio` (srv-dau0qkrncjis73aaqrfg) e `radiografia-db` (dpg-dau0qabncjis73aapn8g-a) in Oregon vanno eliminati dall'utente dopo la verifica
+- URL: **https://area.dentaliagroup.it** (Custom Domain su radiografia-studio-eu; CNAME `area` su Aruba → radiografia-studio-eu.onrender.com). Resta valido anche https://radiografia-studio-eu.onrender.com
 - Ingresso dal sito: pagina www.dentaliagroup.it/accesso-privato/ (voce "Accesso" col lucchetto nel menu) → `/area-privata` (login o pannello) e `/registrati`
 - Sito pubblico: www.dentaliagroup.it, sito statico su misura ospitato su Aruba (non su GitHub)
 
