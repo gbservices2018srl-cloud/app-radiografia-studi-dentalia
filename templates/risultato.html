@@ -88,7 +88,7 @@
 <div class="azioni-pagina no-print">
   <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo da questo report</a>
   <button class="btn sec-btn" onclick="window.print()">Stampa / salva PDF</button>
-  <form method="post" action="{{ url_for('elimina', vid=v.id) }}" onsubmit="return confirm('Eliminare questa valutazione?')">
+  <form method="post" action="{{ url_for('elimina', vid=v.id) }}" onsubmit="return confirm('Eliminare questa radiografia? Gli eventuali preventivi collegati restano in archivio.')">
     <button class="btn secondario" type="submit">Elimina</button>
   </form>
 </div>

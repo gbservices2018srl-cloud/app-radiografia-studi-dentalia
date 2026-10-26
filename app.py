@@ -215,7 +215,9 @@ def pulizia_dati_prova():
         return
     for p in Preventivo.query.filter_by(utente_id=u.id).all():
         db.session.delete(p)
+    db.session.flush()
     for v in Valutazione.query.filter_by(utente_id=u.id).all():
+        Preventivo.query.filter_by(valutazione_id=v.id).update({"valutazione_id": None})
         db.session.delete(v)
     db.session.flush()
     db.session.delete(u)
@@ -612,6 +614,8 @@ def risultato(vid):
 @login_richiesto
 def elimina(vid):
     v = valutazione_visibile(vid)
+    # i preventivi fatti da questa radiografia restano: perdono solo il collegamento
+    Preventivo.query.filter_by(valutazione_id=v.id).update({"valutazione_id": None})
     db.session.delete(v)
     db.session.commit()
     return redirect(url_for("index"))

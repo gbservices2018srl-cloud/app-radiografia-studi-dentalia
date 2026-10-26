@@ -292,6 +292,25 @@ class TestApp(unittest.TestCase):
         # una seconda volta non sovrascrive (destinazione non vuota)
         self.assertIsNone(copia_dati(src.url.render_as_string(hide_password=False), dest, m.db.metadata))
 
+    def test_20_elimina_radiografia_con_preventivo(self):
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.marco.post("/nuova", data={"studio": "Studio Da Eliminare", **{d["id"]: "3" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        dati = {"cliente": "Studio Da Eliminare", "data": "2026-10-26", "validita_giorni": "30",
+                "stato": "bozza", "sconto_globale": "0", "valutazione_id": str(vid),
+                "r_desc": ["Voce A"], "r_det": [""], "r_qta": ["1"], "r_prezzo": ["100"],
+                "r_sconto": ["0"], "r_iva": ["22"], "r_unita": ["a corpo"]}
+        r = self.marco.post("/preventivi/nuovo", data=dati)
+        pid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        r = self.marco.post(f"/valutazione/{vid}/elimina")
+        self.assertEqual(r.status_code, 302)
+        with m.app.app_context():
+            self.assertIsNone(m.db.session.get(m.Valutazione, vid))
+            p = m.db.session.get(m.Preventivo, pid)
+            self.assertIsNotNone(p)
+            self.assertIsNone(p.valutazione_id)
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()
