@@ -1,8 +1,11 @@
+# Descrive la configurazione su Render (Francoforte). Il Blueprint è scollegato dal 26/10/2026:
+# questo file è solo documentazione, Render non lo applica in automatico.
 services:
   - type: web
-    name: radiografia-studio
+    name: radiografia-studio-eu
+    region: frankfurt
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
@@ -18,9 +21,10 @@ services:
         value: Amministratore
       - key: DATABASE_URL
         fromDatabase:
-          name: radiografia-db
+          name: radiografia-db-eu
           property: connectionString
 
 databases:
-  - name: radiografia-db
-    plan: free
+  - name: radiografia-db-eu
+    region: frankfurt
+    plan: basic-256mb

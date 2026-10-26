@@ -9,7 +9,7 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 - Render, workspace "Giancarlo's workspace" (`tea-d9tjmovqj5pc73fqaevg`)
   - web service `radiografia-studio-eu` (`srv-dbfja6o473hc73ddc85g`), **Francoforte**, piano 0.5c-512mb (sempre attivo), autodeploy a ogni push su main
   - database `radiografia-db-eu` (`dpg-dbfj82tg1s2s7381c900-a`), **Francoforte**, Postgres 18, piano 0.1c-256mb. IP allowlist vuota (solo rete interna Render): il tool MCP query_render_postgres non lo raggiunge
-  - Trasloco da Oregon il 26/10/2026 con `migrazione.py` (variabile MIGRA_DA, già rimossa). I vecchi `radiografia-studio` (srv-dau0qkrncjis73aaqrfg) e `radiografia-db` (dpg-dau0qabncjis73aapn8g-a) in Oregon vanno eliminati dall'utente dopo la verifica
+  - Trasloco da Oregon il 26/10/2026 con `migrazione.py` (variabile MIGRA_DA, già rimossa). Vecchi servizi in Oregon eliminati; Blueprint "App radiografia iniziale studi" scollegato (render.yaml = solo documentazione). `migrazione.py` resta per traslochi futuri
 - URL: **https://area.dentaliagroup.it** (Custom Domain su radiografia-studio-eu; CNAME `area` su Aruba → radiografia-studio-eu.onrender.com). Resta valido anche https://radiografia-studio-eu.onrender.com
 - Ingresso dal sito: pagina www.dentaliagroup.it/accesso-privato/ (voce "Accesso" col lucchetto nel menu) → `/area-privata` (login o pannello) e `/registrati`
 - Sito pubblico: www.dentaliagroup.it, sito statico su misura ospitato su Aruba (non su GitHub)
@@ -38,4 +38,4 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 1. **Sezione Contratti** (richiesta 22/10): da preventivo "Accettato" → pulsante "Genera contratto"; compilazione automatica con dati azienda + cliente + voci/totali del preventivo + consulente; campi aggiuntivi da compilare = quelli evidenziati in giallo nel modello dell'utente (atteso un .docx con evidenziazioni gialle); firma col dito su smartphone/tablet (canvas) per cliente (ed eventualmente azienda), con data/ora; PDF scaricabile/inviabile; archivio contratti con stato. Ampliare i dati cliente: ragione sociale, P.IVA, CF, indirizzo, CAP, provincia, PEC, SDI, legale rappresentante (+ CF, luogo/data di nascita se servono al modello). Domande aperte all'utente: chi firma (solo cliente o entrambi) e se il cliente firma di persona o tramite link inviato.
 2. Algoritmo di analisi reale (`scoring.py`, deve accettare il parametro `aree`), listino reale (ora 11 voci di esempio). Le domande definitive l'utente le inserisce da /admin/domande.
 3. ~~Dominio area.dentaliagroup.it e voce sul sito~~ fatto il 23/10/2026.
-4. ~~Piani a pagamento~~ fatto il 26/10/2026: database `radiografia-db` su 0.1c-256mb (6 $/mese, non scade più) e web service su 0.5c-512mb (7 $/mese, non si addormenta).
+4. ~~Piani a pagamento e trasloco a Francoforte~~ fatto il 26/10/2026: database 0.1c-256mb (~6 $/mese) e web service 0.5c-512mb (~7 $/mese, non si addormenta).
