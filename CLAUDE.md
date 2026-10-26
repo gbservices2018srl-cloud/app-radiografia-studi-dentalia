@@ -7,8 +7,8 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 ## Dove gira
 - Repository: github.com/gbservices2018srl-cloud/app-radiografia-studi-dentalia (branch `main`)
 - Render, workspace "Giancarlo's workspace" (`tea-d9tjmovqj5pc73fqaevg`)
-  - web service `radiografia-studio` (`srv-dau0qkrncjis73aaqrfg`), piano free, region oregon, autodeploy a ogni push su main
-  - database `radiografia-db` (`dpg-dau0qabncjis73aapn8g-a`), Postgres 18, **piano free: scade il 29/10/2026 alle 21:10 (ora italiana)** → va fatto l'upgrade (Basic-256mb) entro il 28/10 dal dashboard Render (i tool MCP Render non cambiano il piano)
+  - web service `radiografia-studio` (`srv-dau0qkrncjis73aaqrfg`), piano 0.5c-512mb (sempre attivo), region oregon, autodeploy a ogni push su main
+  - database `radiografia-db` (`dpg-dau0qabncjis73aapn8g-a`), Postgres 18, piano a pagamento 0.1c-256mb dal 26/10/2026 (non scade)
 - URL: **https://area.dentaliagroup.it** (Custom Domain verificato su Render il 23/10/2026; CNAME `area` su Aruba → radiografia-studio.onrender.com). Resta valido anche https://radiografia-studio.onrender.com
 - Ingresso dal sito: pagina www.dentaliagroup.it/accesso-privato/ (voce "Accesso" col lucchetto nel menu) → `/area-privata` (login o pannello) e `/registrati`
 - Sito pubblico: www.dentaliagroup.it, sito statico su misura ospitato su Aruba (non su GitHub)
@@ -17,6 +17,7 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 - `app.py` — modelli (Utente, Valutazione, Servizio, Preventivo, Impostazioni), login/ruoli, /admin, radiografie, preventivi, listino, dati aziendali
 - `questions.py` — **domande iniziali** (8 aree × 4 domande di esempio). Le domande in uso stanno nel DB, modello `Questionario` (riga id=1, JSON), modificabili dall'admin in **/admin/domande** (`templates/domande.html`); senza riga valgono quelle di questions.py. Usare sempre `aree_correnti()` (domande attuali) o `aree_di(v)` (domande con cui è stata fatta la radiografia v), mai `AREAS` direttamente
 - `Valutazione.questionario` = copia JSON delle aree usate per quella radiografia: i report vecchi non cambiano se le domande cambiano (le radiografie precedenti al 23/10 ricevono all'avvio la copia delle domande iniziali, `fissa_questionario_radiografie()`)
+- `Valutazione.note_domande` = JSON {domanda_id: nota}: note interne per domanda (form /nuova, campo `nota_<id>`), mostrate in risultato.html solo nella sezione `.note-interne.no-print` → mai nella stampa/PDF consegnato; visibili solo ad admin e autore (`valutazione_visibile`)
 - `scoring.py` — `calcola(risposte, aree) -> {area_id: 0-100}` (ora media semplice: l'algoritmo vero lo fornirà l'utente) e `livello()` (<50 critico, <75 da migliorare)
 - `templates/`, `static/style.css` (variabili colore in testa), `static/brand/` (loghi Dentalia, favicon)
 - `demo/index.html` — demo offline per smartphone, file unico con domande incorporate (NON segue /admin/domande: va riallineata a mano se serve)
@@ -36,4 +37,4 @@ L'utente (Giancarlo, bogogiancarlo@gmail.com) non è uno sviluppatore: risponder
 1. **Sezione Contratti** (richiesta 22/10): da preventivo "Accettato" → pulsante "Genera contratto"; compilazione automatica con dati azienda + cliente + voci/totali del preventivo + consulente; campi aggiuntivi da compilare = quelli evidenziati in giallo nel modello dell'utente (atteso un .docx con evidenziazioni gialle); firma col dito su smartphone/tablet (canvas) per cliente (ed eventualmente azienda), con data/ora; PDF scaricabile/inviabile; archivio contratti con stato. Ampliare i dati cliente: ragione sociale, P.IVA, CF, indirizzo, CAP, provincia, PEC, SDI, legale rappresentante (+ CF, luogo/data di nascita se servono al modello). Domande aperte all'utente: chi firma (solo cliente o entrambi) e se il cliente firma di persona o tramite link inviato.
 2. Algoritmo di analisi reale (`scoring.py`, deve accettare il parametro `aree`), listino reale (ora 11 voci di esempio). Le domande definitive l'utente le inserisce da /admin/domande.
 3. ~~Dominio area.dentaliagroup.it e voce sul sito~~ fatto il 23/10/2026.
-4. Valutare piano Starter per il web service (il free si addormenta dopo 15 minuti: primo accesso lento).
+4. ~~Piani a pagamento~~ fatto il 26/10/2026: database `radiografia-db` su 0.1c-256mb (6 $/mese, non scade più) e web service su 0.5c-512mb (7 $/mese, non si addormenta).
