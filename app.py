@@ -277,6 +277,13 @@ with app.app_context():
         aggiorna_schema()
     except Exception as e:  # non bloccare l'avvio: l'errore resta visibile nei log di Render
         print(f"ATTENZIONE: aggiornamento schema non riuscito: {e}", flush=True)
+    if os.environ.get("MIGRA_DA"):  # trasloco una tantum da un altro database (vedi migrazione.py)
+        from migrazione import copia_dati
+        try:
+            esito = copia_dati(os.environ["MIGRA_DA"], db.engine, db.metadata)
+            print(f"MIGRAZIONE: {'saltata, il database non è vuoto' if esito is None else esito}", flush=True)
+        except Exception as e:
+            print(f"MIGRAZIONE NON RIUSCITA: {e}", flush=True)
     crea_admin_iniziale()
     crea_dati_iniziali()
     try:

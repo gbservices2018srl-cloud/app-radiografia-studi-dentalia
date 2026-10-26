@@ -272,6 +272,26 @@ class TestApp(unittest.TestCase):
         self.assertIn("Il titolare era scettico", self.admin.get(r.location).get_data(as_text=True))
         self.assertEqual(self.laura.get(r.location).status_code, 403)
 
+    def test_19_migrazione_tra_database(self):
+        from sqlalchemy import create_engine, func, select
+        from migrazione import copia_dati
+        cartella = tempfile.mkdtemp()
+        destinazione = f"sqlite:///{os.path.join(cartella, 'nuovo.db')}"
+        # il database di origine = quello dei test (pieno), la destinazione = nuovo e con le righe di avvio
+        with m.app.app_context():
+            src = m.db.engine
+            dest = create_engine(destinazione)
+            m.db.metadata.create_all(dest)
+            n_val = m.Valutazione.query.count()
+            n_ut = m.Utente.query.count()
+            esito = copia_dati(src.url.render_as_string(hide_password=False), dest, m.db.metadata)
+        self.assertIsNotNone(esito)
+        self.assertEqual(esito["valutazione"], n_val)
+        with dest.connect() as c:
+            self.assertEqual(c.execute(select(func.count()).select_from(m.db.metadata.tables["utente"])).scalar(), n_ut)
+        # una seconda volta non sovrascrive (destinazione non vuota)
+        self.assertIsNone(copia_dati(src.url.render_as_string(hide_password=False), dest, m.db.metadata))
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()
