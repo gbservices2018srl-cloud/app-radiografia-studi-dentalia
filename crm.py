@@ -191,7 +191,8 @@ def contatto_nuovo():
 def contatto_scheda(cid):
     c = contatto_visibile(cid)
     # conteggio aperture della scheda (= richiami): non si ricontano i ritorni sulla stessa scheda a pochi minuti
-    ultima = Attivita.query.filter_by(contatto_id=c.id, utente_id=g.utente.id).order_by(Attivita.quando.desc()).first()
+    ultima = Attivita.query.filter_by(contatto_id=c.id, utente_id=g.utente.id, tipo="apertura") \
+        .order_by(Attivita.quando.desc()).first()
     if not ultima or datetime.utcnow() - ultima.quando > FINESTRA_APERTURA:
         c.aperture = (c.aperture or 0) + 1
         registra(c, "apertura")
@@ -422,7 +423,7 @@ def importa_righe(righe, proprietario_id, nome_file="file"):
             doppioni.append(studio)
             continue
         citta = val.get("citta", "")
-        if val.get("provincia") and val["provincia"].lower() not in citta.lower():
+        if val.get("provincia") and not re.search(r"\([A-Za-z]{2}\)\s*$", citta):
             citta = f"{citta} ({val['provincia'].upper()})".strip()
         c = Contatto(utente_id=proprietario_id, studio=studio[:200], titolare=(val.get("titolare") or "")[:200]
                      if val.get("studio") else "", telefono=val.get("telefono", "")[:60], telefono_norm=tel,
