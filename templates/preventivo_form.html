@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% from "_icone.html" import ico %}
 {% block title %}{{ 'Nuovo preventivo' if nuovo else 'Preventivo ' ~ p.codice }}{% endblock %}
 {% block content %}
+{% set affiliazione = p.tipo == 'affiliazione' %}
 <div class="titolo-riga">
   <div>
-    <h1>{{ 'Nuovo preventivo' if nuovo else 'Preventivo ' ~ p.codice }}</h1>
+    <h1>{{ 'Nuovo preventivo' if nuovo else 'Preventivo ' ~ p.codice }}{% if affiliazione %} <span class="tipo-prev aff">{{ ico('stella', size=15) }} Affiliazione</span>{% elif not nuovo %} <span class="tipo-prev">{{ ico('preventivo', size=15) }} Servizi</span>{% endif %}</h1>
     {% if not nuovo %}<p class="meta">Creato il {{ p.creato_il.strftime('%d/%m/%Y') }} · stato <span class="stato {{ p.stato }}">{{ stati[p.stato] }}</span></p>{% endif %}
   </div>
   {% if not nuovo %}
@@ -16,6 +18,7 @@
 
 <form method="post" id="fprev" autocomplete="off">
   <input type="hidden" name="dopo" id="dopo" value="">
+  <input type="hidden" name="tipo" value="{{ 'affiliazione' if affiliazione else 'servizi' }}">
 
   <section class="card">
     <h2>Radiografia collegata</h2>
@@ -28,7 +31,36 @@
     <p class="meta">Collegando una radiografia i dati del cliente si compilano e compaiono le voci di listino suggerite per le aree da migliorare.</p>
   </section>
 
-  {% if suggerimenti %}
+  {% if affiliazione %}
+  {% set prezzo_att = aff_prezzo if aff_prezzo else aff.prezzo %}
+  <section class="card aff-blocco">
+    <div class="aff-testa">
+      <span class="aff-ico">{{ ico('stella', size=26) }}</span>
+      <div>
+        <h2 style="margin:0">{{ aff.titolo }}</h2>
+        <p class="meta">Il primo passo per ogni studio: i preventivi dei singoli servizi si sbloccano quando questo è <b>accettato</b>.</p>
+      </div>
+    </div>
+    <ul class="aff-voci">
+      {% for v in aff.voci %}<li>{{ ico('ok', size=16) }} {{ v }}</li>{% endfor %}
+    </ul>
+    <div class="aff-prezzo">
+      <div class="aff-listino"><small>Prezzo di listino</small><b>{{ aff.prezzo | euro }}</b><small>+ IVA {{ aff.iva | num }}%</small></div>
+      <label class="aff-concordato">{{ ico('euro', size=16) }} Prezzo concordato (IVA esclusa)
+        <input type="number" name="aff_prezzo" id="aff-prezzo" min="{{ aff.minimo }}" max="{{ aff.prezzo }}" step="50" value="{{ '%.2f'|format(prezzo_att) }}" required>
+        <small>Sconto possibile fino a {{ aff.minimo | euro }}: mai sotto.</small>
+      </label>
+      <dl class="aff-totali">
+        <dt>Sconto</dt><dd id="aff-sconto">—</dd>
+        <dt>Imponibile</dt><dd id="aff-imp">—</dd>
+        <dt>IVA {{ aff.iva | num }}%</dt><dd id="aff-iva">—</dd>
+        <dt class="grande">Totale</dt><dd class="grande" id="aff-tot">—</dd>
+      </dl>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if suggerimenti and not affiliazione %}
   <section class="card suggerimenti">
     <div class="titolo-riga" style="margin-bottom:6px">
       <h2 style="margin:0">Voci suggerite dalla radiografia</h2>
@@ -75,6 +107,7 @@
     <label style="display:block;margin-top:12px">Oggetto<input name="oggetto" value="{{ p.oggetto or '' }}" placeholder="Es. Piano di miglioramento dello studio"></label>
   </section>
 
+  {% if not affiliazione %}
   <section class="card">
     <div class="titolo-riga" style="margin-bottom:10px">
       <h2 style="margin:0">Voci</h2>
@@ -100,6 +133,7 @@
       </dl>
     </div>
   </section>
+  {% endif %}
 
   <section class="card">
     <h2>Note e condizioni</h2>
@@ -119,6 +153,30 @@
 </form>
 {% endif %}
 
+{% if affiliazione %}
+<script>
+(function () {
+  const LISTINO = {{ aff.prezzo }}, MIN = {{ aff.minimo }}, IVA = {{ aff.iva }};
+  const inp = document.getElementById('aff-prezzo');
+  const fmt = n => '€ ' + n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function calcola() {
+    let v = parseFloat(String(inp.value).replace(',', '.')) || 0;
+    inp.classList.toggle('errore', v < MIN || v > LISTINO);
+    const iva = Math.round(v * IVA) / 100;
+    document.getElementById('aff-sconto').textContent = v < LISTINO ? '− ' + fmt(LISTINO - v) + ' (' + ((1 - v / LISTINO) * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + '%)' : 'nessuno';
+    document.getElementById('aff-imp').textContent = fmt(v);
+    document.getElementById('aff-iva').textContent = fmt(iva);
+    document.getElementById('aff-tot').textContent = fmt(v + iva);
+  }
+  inp.addEventListener('input', calcola); calcola();
+  const sel = document.getElementById('sel-val');
+  if (sel) sel.onchange = e => {
+    if ({{ 'true' if nuovo else 'false' }}) location.href = '{{ url_for("preventivo_nuovo", tipo="affiliazione") }}' + (e.target.value ? '&valutazione=' + e.target.value : '');
+    else document.getElementById('fprev').requestSubmit();
+  };
+})();
+</script>
+{% else %}
 <template id="tpl-riga">
   <div class="riga-prev">
     <div class="rp-desc">
@@ -210,4 +268,5 @@ RIGHE_INIZIALI.forEach(aggiungi);
 sincronizzaSpunte();
 ricalcola();
 </script>
+{% endif %}
 {% endblock %}

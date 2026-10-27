@@ -5,6 +5,7 @@
   <img src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia">
   <div class="tit"><b>Radiografia dello studio</b>Check-up gestionale</div>
 </div>
+{% if v.contatto_id %}<p class="meta no-print"><a href="{{ url_for('contatto_scheda', cid=v.contatto_id) }}">← Scheda contatto</a></p>{% endif %}
 <div class="intestazione">
   <div>
     <h1>{{ v.studio }}</h1>
@@ -86,7 +87,15 @@
 <p class="firma-brand">Report realizzato da <img src="{{ url_for('static', filename='brand/logo-scritta.png') }}" alt="Dentalia"> · Studi indipendenti. Più forti. Insieme.</p>
 
 <div class="azioni-pagina no-print">
-  <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo da questo report</a>
+  {% if not affiliazione %}
+  <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=v.id, tipo='affiliazione') }}">Crea il preventivo di affiliazione</a>
+  {% elif affiliazione.stato != 'accettato' %}
+  <a class="btn oro" href="{{ url_for('preventivo_modifica', pid=affiliazione.id) }}">Apri l'affiliazione {{ affiliazione.codice }} ({{ {'bozza': 'bozza', 'inviato': 'consegnata', 'rifiutato': 'rifiutata'}.get(affiliazione.stato, affiliazione.stato) }})</a>
+  <span class="meta blocco-upsell">I preventivi dei servizi si sbloccano quando l'affiliazione è accettata.</span>
+  {% else %}
+  <a class="btn sec-btn" href="{{ url_for('preventivo_modifica', pid=affiliazione.id) }}">Affiliazione {{ affiliazione.codice }} · accettata</a>
+  <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo dei servizi</a>
+  {% endif %}
   <button class="btn sec-btn" onclick="window.print()">Stampa / salva PDF</button>
   <form method="post" action="{{ url_for('elimina', vid=v.id) }}" onsubmit="return confirm('Eliminare questa radiografia? Gli eventuali preventivi collegati restano in archivio.')">
     <button class="btn secondario" type="submit">Elimina</button>

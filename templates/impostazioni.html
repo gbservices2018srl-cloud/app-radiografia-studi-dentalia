@@ -18,6 +18,16 @@
     </div>
     <label style="display:block;margin-top:12px">Condizioni predefinite<textarea name="condizioni_default" rows="4">{{ imp.condizioni_default or '' }}</textarea></label>
   </section>
+  <section class="card aff-blocco">
+    <h2>Preventivo di affiliazione</h2>
+    <p class="meta">È il primo preventivo per ogni studio: i commerciali possono scontarlo ma mai sotto il prezzo minimo.</p>
+    <div class="griglia">
+      <label>Titolo<input name="aff_titolo" value="{{ aff.titolo }}"></label>
+      <label>Prezzo di listino € (IVA esclusa)<input type="number" step="50" min="1" name="aff_prezzo" value="{{ aff.prezzo }}"></label>
+      <label>Prezzo minimo € (IVA esclusa)<input type="number" step="50" min="1" name="aff_minimo" value="{{ aff.minimo }}"></label>
+    </div>
+    <label style="display:block;margin-top:12px">Cosa comprende (una voce per riga)<textarea name="aff_voci" rows="12">{{ aff.voci | join('\n') }}</textarea></label>
+  </section>
   <button class="btn grande" type="submit">Salva</button>
 </form>
 {% endblock %}

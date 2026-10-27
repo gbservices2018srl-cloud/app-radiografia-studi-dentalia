@@ -108,7 +108,7 @@
     <tbody>
       {% for r in righe %}
       <tr>
-        <td><strong>{{ r.descrizione }}</strong>{% if r.dettaglio %}<small>{{ r.dettaglio }}</small>{% endif %}</td>
+        <td><strong>{{ r.descrizione }}</strong>{% if r.dettaglio and '\n' in r.dettaglio %}<ul class="voci-incluse">{% for x in r.dettaglio.split('\n') if x.strip() %}<li>{{ x }}</li>{% endfor %}</ul>{% elif r.dettaglio %}<small>{{ r.dettaglio }}</small>{% endif %}</td>
         <td>{{ r.qta | num }}{% if r.unita and r.unita != 'a corpo' %} {{ r.unita }}{% endif %}</td>
         <td>{{ r.prezzo | euro }}</td>
         <td>{{ (r.sconto | num) ~ '%' if r.sconto else '—' }}</td>

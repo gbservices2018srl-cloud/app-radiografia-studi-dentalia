@@ -111,6 +111,7 @@ class Preventivo(db.Model):
     oggetto = db.Column(db.String(300))
     righe = db.Column(db.Text, nullable=False, default="[]")   # JSON: descrizione, qta, prezzo, sconto, iva
     sconto_globale = db.Column(db.Float, default=0)
+    tipo = db.Column(db.String(20))     # "affiliazione" oppure vuoto/"servizi" (upsell, sbloccati dall'affiliazione accettata)
     note = db.Column(db.Text)
     condizioni = db.Column(db.Text)
     creato_il = db.Column(db.DateTime, default=datetime.utcnow)
@@ -136,6 +137,11 @@ class Impostazioni(db.Model):
         "Pagamento: 50% all'accettazione, saldo a fine attività.\n"
         "I prezzi si intendono IVA esclusa, salvo diversa indicazione."))
     validita_default = db.Column(db.Integer, default=30)
+    # preventivo di affiliazione (obbligatorio prima dei servizi): valori vuoti = quelli di AFFILIAZIONE_BASE
+    aff_titolo = db.Column(db.String(200))
+    aff_prezzo = db.Column(db.Float)
+    aff_minimo = db.Column(db.Float)
+    aff_voci = db.Column(db.Text)       # una voce per riga
 
 
 class Contatto(db.Model):
@@ -203,6 +209,73 @@ def aree_di(v):
         except ValueError:
             pass
     return aree_correnti()
+
+
+AFFILIAZIONE_BASE = {
+    "titolo": "Affiliazione al network Dentalia",
+    "prezzo": 5000.0,
+    "minimo": 4000.0,
+    "voci": [
+        "Attivazione fornitori obbligatori",
+        "Project manager dedicato per assistenza",
+        "3 corsi all'anno di gestione extra clinica (vendita, gestione risorse umane e gestione finanziaria)",
+        "App per controllo di gestione finanziaria",
+        "App per la gestione del magazzino interno",
+        "Sistema di selezione delle figure da assumere",
+        "Burocrazia amministrativa (contratti, consensi, modulistica…)",
+        "Prima consulenza gratuita coi fornitori opzionali",
+        "Licenza di uso per marchio Dentalia",
+        "Start-up kit Dentalia Marketing",
+        "Report scritto delle criticità dello studio",
+    ],
+}
+
+
+def conf_affiliazione():
+    imp = impostazioni()
+    voci = [v.strip() for v in (imp.aff_voci or "").splitlines() if v.strip()]
+    prezzo = imp.aff_prezzo if imp.aff_prezzo else AFFILIAZIONE_BASE["prezzo"]
+    minimo = imp.aff_minimo if imp.aff_minimo is not None and imp.aff_minimo > 0 else AFFILIAZIONE_BASE["minimo"]
+    return {"titolo": imp.aff_titolo or AFFILIAZIONE_BASE["titolo"], "prezzo": prezzo,
+            "minimo": min(minimo, prezzo), "voci": voci or AFFILIAZIONE_BASE["voci"], "iva": 22.0}
+
+
+def riga_affiliazione(prezzo_concordato=None):
+    """La voce unica del preventivo di affiliazione; lo sconto è quello che porta al prezzo concordato."""
+    c = conf_affiliazione()
+    concordato = c["prezzo"] if prezzo_concordato is None else prezzo_concordato
+    sconto = max(0.0, (1 - concordato / c["prezzo"]) * 100) if c["prezzo"] else 0.0
+    return {"descrizione": c["titolo"], "dettaglio": "\n".join(c["voci"]), "unita": "a corpo", "qta": 1,
+            "prezzo": c["prezzo"], "sconto": sconto, "iva": c["iva"]}
+
+
+def affiliazione_di(vid):
+    """Il preventivo di affiliazione di una radiografia: quello accettato se c'è, altrimenti il più recente."""
+    if not vid:
+        return None
+    q = Preventivo.query.filter_by(valutazione_id=vid, tipo="affiliazione")
+    return q.filter_by(stato="accettato").first() or q.order_by(Preventivo.creato_il.desc()).first()
+
+
+def affiliazione_accettata(vid):
+    a = affiliazione_di(vid)
+    return a if a and a.stato == "accettato" else None
+
+
+def dopo_cambio_stato(p, stato_prima):
+    """Affiliazione accettata: il contatto CRM diventa 'Affiliato'. Ogni passaggio finisce nella storia del contatto."""
+    if p.stato == stato_prima or not p.valutazione_id:
+        return
+    v = db.session.get(Valutazione, p.valutazione_id)
+    c = db.session.get(Contatto, v.contatto_id) if v and v.contatto_id else None
+    if not c:
+        return
+    tipo = "affiliazione" if p.tipo == "affiliazione" else "servizi"
+    db.session.add(Attivita(contatto_id=c.id, utente_id=g.utente.id, tipo="preventivo", esito=p.stato,
+                            testo=f"Preventivo {tipo} {p.codice}: {STATI.get(p.stato, p.stato)}"))
+    if p.tipo == "affiliazione" and p.stato == "accettato":
+        c.stato = "cliente"
+        c.modificato_il = datetime.utcnow()
 
 
 def impostazioni():
@@ -667,6 +740,7 @@ def risultato(vid):
         "risultato.html", v=v, report=report, priorita=priorita, media=media_di(punteggi),
         note_interne=note_interne,
         radar=radar_svg(report), commerciale=db.session.get(Utente, v.utente_id),
+        affiliazione=affiliazione_di(v.id),
     )
 
 
@@ -853,8 +927,16 @@ def salva_da_form(p, form):
         setattr(p, campo, form.get(campo, "").strip())
     p.data = datetime.strptime(form["data"], "%Y-%m-%d").date() if form.get("data") else datetime.now().date()
     p.validita_giorni = int(a_numero(form.get("validita_giorni"), 30))
-    p.sconto_globale = min(max(a_numero(form.get("sconto_globale")), 0), 100)
-    p.righe = json.dumps(righe_da_form(form))
+    if p.tipo == "affiliazione":
+        c = conf_affiliazione()
+        concordato = a_numero(form.get("aff_prezzo"), c["prezzo"])
+        if concordato < c["minimo"] - 0.005 or concordato > c["prezzo"] + 0.005:
+            raise ValueError(f"Il prezzo dell'affiliazione deve stare tra {euro(c['minimo'])} e {euro(c['prezzo'])} + IVA.")
+        p.sconto_globale = 0
+        p.righe = json.dumps([riga_affiliazione(round(concordato, 2))])
+    else:
+        p.sconto_globale = min(max(a_numero(form.get("sconto_globale")), 0), 100)
+        p.righe = json.dumps(righe_da_form(form))
     if form.get("stato") in STATI:
         p.stato = form["stato"]
     vid = form.get("valutazione_id", type=int)
@@ -896,9 +978,23 @@ def preventivo_nuovo():
     imp = impostazioni()
     if request.method == "POST":
         anno = datetime.now().year
-        p = Preventivo(anno=anno, numero=prossimo_numero(anno), utente_id=g.utente.id)
-        salva_da_form(p, request.form)
+        p = Preventivo(anno=anno, numero=prossimo_numero(anno), utente_id=g.utente.id,
+                       tipo="affiliazione" if request.form.get("tipo") == "affiliazione" else "servizi")
+        vid = request.form.get("valutazione_id", type=int)
+        if p.tipo == "servizi" and not g.utente.is_admin and not affiliazione_accettata(vid):
+            flash("I preventivi dei servizi si sbloccano quando il preventivo di affiliazione è accettato.")
+            return redirect(url_for("preventivo_nuovo", valutazione=vid, tipo="affiliazione") if vid else url_for("preventivi"))
+        try:
+            salva_da_form(p, request.form)
+        except ValueError as e:
+            flash(str(e))
+            return render_template("preventivo_form.html", p=p, righe=json.loads(p.righe or "[]"), stati=STATI,
+                                   listino=listino_json(), nuovo=True, suggerimenti=suggerimenti_per(p),
+                                   valutazioni=valutazioni_collegabili(), aff=conf_affiliazione(),
+                                   aff_prezzo=a_numero(request.form.get("aff_prezzo")))
         db.session.add(p)
+        db.session.flush()
+        dopo_cambio_stato(p, None)
         db.session.commit()
         flash(f"Preventivo {p.codice} salvato.")
         return redirect(url_for("preventivo_modifica", pid=p.id))
@@ -908,18 +1004,37 @@ def preventivo_nuovo():
                    condizioni=imp.condizioni_default, stato="bozza", sconto_globale=0, cliente="")
     righe = []
     vid = request.args.get("valutazione", type=int)
+    tipo = request.args.get("tipo")
+    if vid and tipo != "affiliazione" and not affiliazione_accettata(vid):
+        # prima dei servizi serve l'affiliazione: se esiste già la si apre, altrimenti la si prepara
+        esistente = affiliazione_di(vid)
+        if esistente:
+            flash("Prima va accettato il preventivo di affiliazione: poi si sbloccano i preventivi dei servizi.")
+            return redirect(url_for("preventivo_modifica", pid=esistente.id))
+        return redirect(url_for("preventivo_nuovo", valutazione=vid, tipo="affiliazione"))
+    if not vid and tipo != "servizi":
+        tipo = "affiliazione"
+    if tipo == "servizi" and not vid and not g.utente.is_admin:
+        flash("I preventivi dei servizi partono da una radiografia con l'affiliazione accettata.")
+        tipo = "affiliazione"
+    p.tipo = "affiliazione" if tipo == "affiliazione" else "servizi"
+    if p.tipo == "affiliazione":
+        righe = [riga_affiliazione()]
+        p.oggetto = "Proposta di affiliazione al network Dentalia"
     if vid:
         v = valutazione_visibile(vid)
         p.valutazione_id = v.id
         p.cliente, p.referente, p.citta = v.studio, v.referente, v.citta
         p.email_cliente, p.telefono_cliente = v.email_cliente, v.telefono_cliente
-        p.oggetto = "Piano di miglioramento a seguito della radiografia dello studio"
-        # preselezione: le voci di listino collegate alle aree sotto 75
-        for area in suggerimenti_da_valutazione(v):
-            if area["punteggio"] < 75:
-                righe.extend(area["servizi"])
+        if p.tipo != "affiliazione":
+            p.oggetto = "Piano di miglioramento a seguito della radiografia dello studio"
+            # preselezione: le voci di listino collegate alle aree sotto 75
+            for area in suggerimenti_da_valutazione(v):
+                if area["punteggio"] < 75:
+                    righe.extend(area["servizi"])
     return render_template("preventivo_form.html", p=p, righe=righe, stati=STATI, listino=listino_json(), nuovo=True,
-                           suggerimenti=suggerimenti_per(p), valutazioni=valutazioni_collegabili())
+                           suggerimenti=suggerimenti_per(p) if p.tipo != "affiliazione" else None,
+                           valutazioni=valutazioni_collegabili(), aff=conf_affiliazione(), aff_prezzo=None)
 
 
 @app.route("/preventivi/<int:pid>", methods=["GET", "POST"])
@@ -927,15 +1042,25 @@ def preventivo_nuovo():
 def preventivo_modifica(pid):
     p = preventivo_visibile(pid)
     if request.method == "POST":
-        salva_da_form(p, request.form)
+        prima = p.stato
+        try:
+            salva_da_form(p, request.form)
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e))
+            return redirect(url_for("preventivo_modifica", pid=p.id))
+        dopo_cambio_stato(p, prima)
         db.session.commit()
         flash(f"Preventivo {p.codice} aggiornato.")
         if request.form.get("dopo") == "stampa":
             return redirect(url_for("preventivo_stampa", pid=p.id))
         return redirect(url_for("preventivo_modifica", pid=p.id))
-    return render_template("preventivo_form.html", p=p, righe=json.loads(p.righe), stati=STATI,
-                           listino=listino_json(), nuovo=False, suggerimenti=suggerimenti_per(p),
-                           valutazioni=valutazioni_collegabili())
+    righe = json.loads(p.righe)
+    aff_prezzo = calcola_totali(json.loads(p.righe), p.sconto_globale)["imponibile"] if p.tipo == "affiliazione" else None
+    return render_template("preventivo_form.html", p=p, righe=righe, stati=STATI,
+                           listino=listino_json(), nuovo=False,
+                           suggerimenti=suggerimenti_per(p) if p.tipo != "affiliazione" else None,
+                           valutazioni=valutazioni_collegabili(), aff=conf_affiliazione(), aff_prezzo=aff_prezzo)
 
 
 @app.route("/preventivi/<int:pid>/stampa")
@@ -955,8 +1080,10 @@ def preventivo_stampa(pid):
 def preventivo_stato(pid):
     p = preventivo_visibile(pid)
     if request.form.get("stato") in STATI:
+        prima = p.stato
         p.stato = request.form["stato"]
         p.modificato_il = datetime.utcnow()
+        dopo_cambio_stato(p, prima)
         db.session.commit()
     return redirect(request.referrer or url_for("preventivi"))
 
@@ -967,7 +1094,7 @@ def preventivo_duplica(pid):
     o = preventivo_visibile(pid)
     anno = datetime.now().year
     p = Preventivo(anno=anno, numero=prossimo_numero(anno), utente_id=g.utente.id, stato="bozza",
-                   data=datetime.now().date(), valutazione_id=o.valutazione_id)
+                   data=datetime.now().date(), valutazione_id=o.valutazione_id, tipo=o.tipo)
     for campo in ("validita_giorni", "cliente", "referente", "indirizzo", "citta", "piva_cliente", "email_cliente",
                   "telefono_cliente", "oggetto", "righe", "sconto_globale", "note", "condizioni"):
         setattr(p, campo, getattr(o, campo))
@@ -1126,10 +1253,19 @@ def impostazioni_azienda():
         for campo in ("ragione_sociale", "indirizzo", "piva", "sdi", "email", "telefono", "sito", "iban", "condizioni_default"):
             setattr(imp, campo, request.form.get(campo, "").strip())
         imp.validita_default = int(a_numero(request.form.get("validita_default"), 30))
+        if "aff_prezzo" in request.form:
+            prezzo = a_numero(request.form.get("aff_prezzo"), AFFILIAZIONE_BASE["prezzo"])
+            minimo = a_numero(request.form.get("aff_minimo"), AFFILIAZIONE_BASE["minimo"])
+            if prezzo <= 0 or minimo <= 0 or minimo > prezzo:
+                flash("Affiliazione: il prezzo minimo deve essere maggiore di zero e non superiore al prezzo di listino.")
+                return redirect(url_for("impostazioni_azienda"))
+            imp.aff_prezzo, imp.aff_minimo = prezzo, minimo
+            imp.aff_titolo = request.form.get("aff_titolo", "").strip() or None
+            imp.aff_voci = request.form.get("aff_voci", "").strip() or None
         db.session.commit()
         flash("Dati aziendali salvati.")
         return redirect(url_for("impostazioni_azienda"))
-    return render_template("impostazioni.html", imp=imp)
+    return render_template("impostazioni.html", imp=imp, aff=conf_affiliazione())
 
 
 import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline, KPI — registra le sue pagine su `app`)

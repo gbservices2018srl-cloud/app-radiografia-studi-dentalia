@@ -35,7 +35,7 @@
   <div class="card prev-riga">
     <a class="prev-link" href="{{ url_for('preventivo_modifica', pid=r.p.id) }}">
       <div class="prev-info">
-        <span class="prev-num">{{ r.p.codice }}</span>
+        <span class="prev-num">{{ r.p.codice }}</span>{% if r.p.tipo == 'affiliazione' %}<span class="tipo-prev aff piccolo">Affiliazione</span>{% endif %}
         <strong>{{ r.p.cliente }}</strong>
         <p class="meta">{{ r.p.data.strftime('%d/%m/%Y') }}{% if r.p.oggetto %} · {{ r.p.oggetto }}{% endif %}{% if utente.is_admin and r.comm %} · {{ r.comm.nome }}{% endif %}</p>
       </div>

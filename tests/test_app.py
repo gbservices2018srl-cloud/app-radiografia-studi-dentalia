@@ -30,6 +30,13 @@ def risposte(valore):
     return {d["id"]: str(valore) for a in m.AREAS for d in a["domande"]}
 
 
+def affiliazione(client, vid, prezzo="5000", stato="accettato", cliente="Studio"):
+    """Crea il preventivo di affiliazione di una radiografia (obbligatorio prima dei servizi)."""
+    return client.post("/preventivi/nuovo", data={"tipo": "affiliazione", "cliente": cliente, "data": "2026-10-27",
+                                                 "validita_giorni": "30", "stato": stato, "valutazione_id": str(vid),
+                                                 "aff_prezzo": prezzo})
+
+
 class TestApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -75,6 +82,7 @@ class TestApp(unittest.TestCase):
     def test_06_preventivo_da_radiografia(self):
         r = self.marco.post("/nuova", data={"studio": "Studio Suggerimenti", **risposte(1)})
         vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        affiliazione(self.marco, vid, cliente="Studio Suggerimenti")
         form = self.marco.get(f"/preventivi/nuovo?valutazione={vid}").get_data(as_text=True)
         self.assertIn("Voci suggerite dalla radiografia", form)
         self.assertIn("Studio Suggerimenti", form)
@@ -99,9 +107,9 @@ class TestApp(unittest.TestCase):
     def test_07_numerazione_e_duplica(self):
         dati = {"cliente": "Numerazione", "data": "2026-09-29", "r_desc": ["X"], "r_det": [""], "r_qta": ["1"],
                 "r_prezzo": ["10"], "r_sconto": ["0"], "r_iva": ["22"], "r_unita": [""]}
-        r = self.marco.post("/preventivi/nuovo", data=dati)
+        r = self.admin.post("/preventivi/nuovo", data=dati)
         pid = int(r.location.rstrip("/").rsplit("/", 1)[1])
-        self.marco.post(f"/preventivi/{pid}/duplica")
+        self.admin.post(f"/preventivi/{pid}/duplica")
         with m.app.app_context():
             numeri = sorted(p.numero for p in m.Preventivo.query.all())
             self.assertEqual(numeri, list(range(1, len(numeri) + 1)))
@@ -298,11 +306,7 @@ class TestApp(unittest.TestCase):
             aree = m.aree_correnti()
         r = self.marco.post("/nuova", data={"studio": "Studio Da Eliminare", **{d["id"]: "3" for a in aree for d in a["domande"]}})
         vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
-        dati = {"cliente": "Studio Da Eliminare", "data": "2026-10-26", "validita_giorni": "30",
-                "stato": "bozza", "sconto_globale": "0", "valutazione_id": str(vid),
-                "r_desc": ["Voce A"], "r_det": [""], "r_qta": ["1"], "r_prezzo": ["100"],
-                "r_sconto": ["0"], "r_iva": ["22"], "r_unita": ["a corpo"]}
-        r = self.marco.post("/preventivi/nuovo", data=dati)
+        r = affiliazione(self.marco, vid, stato="bozza", cliente="Studio Da Eliminare")
         pid = int(r.location.rstrip("/").rsplit("/", 1)[1])
         r = self.marco.post(f"/valutazione/{vid}/elimina")
         self.assertEqual(r.status_code, 302)
@@ -415,6 +419,72 @@ class TestApp(unittest.TestCase):
             self.assertEqual((c.email, c.citta), ("excel@studio.it", "Sassari"))
         self.assertIn("Studio Excel", self.admin.get("/contatti?q=excel").get_data(as_text=True))
         self.assertEqual(self.admin.get("/contatti/modello.csv").status_code, 200)
+
+    def test_25_affiliazione_obbligatoria_e_prezzo_minimo(self):
+        cid = self._nuovo_contatto(self.marco, studio="Studio Affiliando", telefono="070 555 0303")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento", "appuntamento_il": "2026-11-10T10:00"})
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "presentato"})
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.marco.post("/nuova", data={"studio": "Studio Affiliando", "contatto_id": str(cid),
+                                           **{d["id"]: "2" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        self.assertIn("Crea il preventivo di affiliazione", self.marco.get(f"/valutazione/{vid}").get_data(as_text=True))
+        # senza affiliazione si viene portati al preventivo di affiliazione
+        r = self.marco.get(f"/preventivi/nuovo?valutazione={vid}")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("tipo=affiliazione", r.location)
+        form = self.marco.get(r.location).get_data(as_text=True)
+        self.assertIn("Licenza di uso per marchio Dentalia", form)
+        self.assertIn("Report scritto delle criticità dello studio", form)
+        # sotto i 4.000 € non si salva
+        with m.app.app_context():
+            n_prima = m.Preventivo.query.count()
+        r = affiliazione(self.marco, vid, prezzo="3500", stato="bozza", cliente="Studio Affiliando")
+        self.assertIn("deve stare tra", r.get_data(as_text=True))
+        with m.app.app_context():
+            self.assertEqual(m.Preventivo.query.count(), n_prima)
+        r = affiliazione(self.marco, vid, prezzo="4500", stato="inviato", cliente="Studio Affiliando")
+        pid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        with m.app.app_context():
+            p = m.db.session.get(m.Preventivo, pid)
+            t = m.calcola_totali(json.loads(p.righe), p.sconto_globale)
+            self.assertEqual((p.tipo, t["imponibile"], t["totale"]), ("affiliazione", 4500.0, 5490.0))
+        # i servizi restano bloccati finché l'affiliazione non è accettata
+        r = self.marco.get(f"/preventivi/nuovo?valutazione={vid}")
+        self.assertIn(f"/preventivi/{pid}", r.location)
+        servizi = {"tipo": "servizi", "cliente": "Studio Affiliando", "data": "2026-10-27", "valutazione_id": str(vid),
+                   "r_desc": ["Consulenza"], "r_det": [""], "r_qta": ["1"], "r_prezzo": ["900"], "r_sconto": ["0"],
+                   "r_iva": ["22"], "r_unita": ["a corpo"]}
+        self.marco.post("/preventivi/nuovo", data=servizi)
+        with m.app.app_context():
+            self.assertEqual(m.Preventivo.query.filter_by(valutazione_id=vid, tipo="servizi").count(), 0)
+        # accettata: il contatto diventa Affiliato e si sbloccano i servizi
+        self.marco.post(f"/preventivi/{pid}/stato", data={"stato": "accettato"})
+        with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Contatto, cid).stato, "cliente")
+        self.assertIn("Crea preventivo dei servizi", self.marco.get(f"/valutazione/{vid}").get_data(as_text=True))
+        self.assertEqual(self.marco.get(f"/preventivi/nuovo?valutazione={vid}").status_code, 200)
+        self.marco.post("/preventivi/nuovo", data=servizi)
+        with m.app.app_context():
+            self.assertEqual(m.Preventivo.query.filter_by(valutazione_id=vid, tipo="servizi").count(), 1)
+        stampa = self.marco.get(f"/preventivi/{pid}/stampa").get_data(as_text=True)
+        self.assertIn("Start-up kit Dentalia Marketing", stampa)
+        self.assertIn("5.490,00", stampa)
+        self.assertEqual(self.marco.get(f"/preventivi/{pid}").status_code, 200)
+
+    def test_26_impostazioni_affiliazione(self):
+        base = {"ragione_sociale": "CONSULTING SARDEGNA SRL", "validita_default": "30"}
+        self.admin.post("/impostazioni", data={**base, "aff_titolo": "X", "aff_prezzo": "5000", "aff_minimo": "6000",
+                                              "aff_voci": "A\nB"})
+        with m.app.app_context():
+            self.assertEqual(m.conf_affiliazione()["minimo"], 4000.0)   # minimo sopra il prezzo: rifiutato
+        self.admin.post("/impostazioni", data={**base, "aff_titolo": "", "aff_prezzo": "5000", "aff_minimo": "4000",
+                                              "aff_voci": ""})
+        with m.app.app_context():
+            c = m.conf_affiliazione()
+            self.assertEqual((len(c["voci"]), c["prezzo"], c["minimo"]), (11, 5000.0, 4000.0))
+        self.assertIn("Preventivo di affiliazione", self.admin.get("/impostazioni").get_data(as_text=True))
 
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():

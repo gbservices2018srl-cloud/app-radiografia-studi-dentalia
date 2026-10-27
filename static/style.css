@@ -402,3 +402,30 @@ h1 .ico, h2 .ico { color: var(--oro-scuro); }
   .crm-testa h1 { font-size: 1.3rem; }
   .crm-contatti .btn { flex: 1 1 100%; text-align: center; }
 }
+
+/* ============ Preventivo di affiliazione ============ */
+.tipo-prev { display: inline-flex; align-items: center; gap: 4px; font: 600 .8rem/1 Inter, sans-serif; color: var(--primario); background: var(--bg); border: 1px solid var(--bordo); border-radius: 999px; padding: 5px 10px; vertical-align: middle; }
+.tipo-prev.aff { background: var(--oro-chiaro); border-color: var(--oro-bordo); color: var(--oro-scuro); }
+.tipo-prev.piccolo { padding: 2px 8px; font-size: .72rem; margin-right: 6px; }
+.aff-blocco { border: 2px solid var(--oro-bordo); }
+.aff-testa { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.aff-ico { width: 52px; height: 52px; border-radius: 14px; background: var(--primario); color: var(--oro); display: flex; align-items: center; justify-content: center; flex: none; }
+.aff-voci { list-style: none; padding: 0; margin: 0 0 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+.aff-voci li { display: flex; gap: 8px; align-items: flex-start; } .aff-voci .ico { color: var(--buono); margin-top: 2px; }
+.aff-prezzo { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; padding-top: 14px; border-top: 1px solid var(--bordo); }
+.aff-listino { text-align: center; padding: 10px 14px; background: var(--bg); border-radius: 12px; }
+.aff-listino small { display: block; color: var(--tenue); font-size: .75rem; } .aff-listino b { font-size: 1.3rem; }
+.aff-concordato input { font-size: 1.2rem; font-weight: 700; } .aff-concordato input.errore { border-color: var(--critico); color: var(--critico); }
+.aff-concordato small { display: block; margin-top: 4px; }
+.aff-totali { display: grid; grid-template-columns: auto auto; gap: 4px 14px; margin: 0; text-align: right; }
+.aff-totali dt { color: var(--tenue); } .aff-totali dd { margin: 0; font-weight: 600; }
+.aff-totali .grande { font-size: 1.15rem; color: var(--primario); font-weight: 700; }
+.blocco-upsell { align-self: center; }
+.voci-incluse { margin: 6px 0 0; padding-left: 18px; font-size: .85em; color: #444; columns: 2; column-gap: 24px; }
+.voci-incluse li { break-inside: avoid; margin-bottom: 2px; }
+@media (max-width: 700px) {
+  .aff-voci { grid-template-columns: 1fr; }
+  .aff-prezzo { grid-template-columns: 1fr; }
+  .aff-totali { text-align: left; }
+  .voci-incluse { columns: 1; }
+}
