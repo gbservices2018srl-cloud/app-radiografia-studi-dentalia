@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}{{ c.studio }} · Contatto{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('contatti', stato=c.stato) }}">← {{ STATI_CONTATTO[c.stato] }}</a></p>
+
+<section class="card crm-testa f-{{ c.stato }}">
+  <div class="crm-testa-riga">
+    <span class="crm-avatar">{{ ico('studio', size=28) }}</span>
+    <div class="crm-testa-info">
+      <h1>{{ c.studio }}</h1>
+      <p class="meta">
+        {% if c.titolare %}{{ ico('utente', size=15) }} {{ c.titolare }} · {% endif %}
+        {% if c.citta or c.indirizzo %}{{ ico('luogo', size=15) }} {{ c.indirizzo }}{% if c.indirizzo and c.citta %}, {% endif %}{{ c.citta }}{% endif %}
+      </p>
+      <p class="meta"><span class="crm-stato f-{{ c.stato }}">{{ STATI_CONTATTO[c.stato] }}</span>
+        {% if utenti.get(c.utente_id) %} · seguito da <b>{{ utenti[c.utente_id].nome }}</b>{% endif %}
+        · {{ ico('telefono', size=14) }} {{ c.tentativi or 0 }} chiamate · {{ ico('occhio', size=14) }} {{ c.aperture or 0 }} aperture</p>
+    </div>
+  </div>
+  <div class="crm-contatti">
+    {% if c.telefono %}<a class="btn oro grande-tocco" href="tel:{{ c.telefono_norm or c.telefono }}">{{ ico('telefono') }} Chiama {{ c.telefono }}</a>{% endif %}
+    {% if c.email %}<a class="btn sec-btn" href="mailto:{{ c.email }}">{{ ico('mail') }} {{ c.email }}</a>{% endif %}
+    <a class="btn sec-btn piccolo" href="{{ url_for('contatto_modifica', cid=c.id) }}">{{ ico('modifica') }} Modifica dati</a>
+  </div>
+  {% if c.stato == 'appuntamento' and c.appuntamento_il %}
+  <p class="crm-evidenza">{{ ico('calendario') }} Appuntamento il <b>{{ c.appuntamento_il | ora_locale('%d/%m/%Y alle %H:%M') }}</b></p>
+  {% elif c.richiamare_il and c.stato in ('nuovo', 'richiamare') %}
+  <p class="crm-evidenza">{{ ico('richiama') }} Da richiamare il <b>{{ c.richiamare_il | ora_locale('%d/%m/%Y alle %H:%M') }}</b></p>
+  {% endif %}
+  {% if c.stato == 'non_interessato' %}
+  <p class="crm-evidenza">{{ ico('mail') }} {% if c.newsletter %}In lista newsletter Dentalia.{% elif c.disiscritto %}Si è disiscritto dalla newsletter.{% else %}Per la newsletter serve l'email: <a href="{{ url_for('contatto_modifica', cid=c.id) }}">aggiungila</a>.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if c.stato in ('nuovo', 'richiamare', 'non_interessato') %}
+<section class="card" id="chiamata">
+  <h2>{{ ico('telefono') }} Com'è andata la chiamata?</h2>
+  <form method="post" action="{{ url_for('contatto_chiamata', cid=c.id) }}" class="crm-esiti" id="f-chiamata">
+    <div class="crm-bottoni">
+      <label class="crm-esito e-nr"><input type="radio" name="esito" value="non_risponde" required><span>{{ ico('no-risposta', size=26) }}Non risponde</span></label>
+      <label class="crm-esito e-no"><input type="radio" name="esito" value="no_appuntamento"><span>{{ ico('richiama', size=26) }}Risponde, niente appuntamento</span></label>
+      <label class="crm-esito e-app"><input type="radio" name="esito" value="appuntamento"><span>{{ ico('calendario-ok', size=26) }}Appuntamento preso</span></label>
+      <label class="crm-esito e-ni"><input type="radio" name="esito" value="non_interessato"><span>{{ ico('stop', size=26) }}Non interessato</span></label>
+    </div>
+    <div class="crm-campo solo-app" hidden>
+      <label>{{ ico('calendario') }} Data e ora dell'appuntamento *<input type="datetime-local" name="appuntamento_il"></label>
+    </div>
+    <div class="crm-campo solo-richiamo" hidden>
+      <label>{{ ico('richiama') }} Quando richiamare (facoltativo)<input type="datetime-local" name="richiamare_il" value="{{ domani }}"></label>
+    </div>
+    <label>{{ ico('nota') }} Nota (facoltativa)<textarea name="nota" rows="2" placeholder="Es. la segretaria dice di richiamare dopo le 17"></textarea></label>
+    <button class="btn grande" type="submit">{{ ico('ok') }} Registra</button>
+  </form>
+</section>
+{% elif c.stato == 'appuntamento' %}
+<section class="card" id="chiamata">
+  <h2>{{ ico('calendario') }} Com'è andato l'appuntamento?</h2>
+  <form method="post" action="{{ url_for('contatto_chiamata', cid=c.id) }}" class="crm-esiti">
+    <label>{{ ico('nota') }} Nota (facoltativa)<textarea name="nota" rows="2"></textarea></label>
+    <div class="crm-bottoni due">
+      <button class="crm-esito-btn e-app" name="esito" value="presentato" type="submit">{{ ico('ok', size=26) }}Si è presentato</button>
+      <button class="crm-esito-btn e-nr" name="esito" value="non_presentato" type="submit">{{ ico('x', size=26) }}Non si è presentato</button>
+    </div>
+    <button class="btn oro grande" name="esito" value="presentato_radiografia" type="submit">{{ ico('radar') }} Si è presentato: fai subito la radiografia</button>
+  </form>
+  <details class="gestisci"><summary>{{ ico('telefono', size=14) }} Registra invece una chiamata (es. spostamento)</summary>
+    <form method="post" action="{{ url_for('contatto_chiamata', cid=c.id) }}" class="crm-esiti">
+      <input type="hidden" name="esito" value="appuntamento">
+      <label>Nuova data e ora<input type="datetime-local" name="appuntamento_il" required value="{{ c.appuntamento_il | per_input }}"></label>
+      <label>Nota<textarea name="nota" rows="2"></textarea></label>
+      <button class="btn piccolo" type="submit">Sposta appuntamento</button>
+    </form>
+  </details>
+</section>
+{% else %}
+<section class="card crm-percorso">
+  <h2>{{ ico('radar') }} Radiografia e preventivi</h2>
+  {% if radiografia %}
+  <p>Radiografia del {{ radiografia.creata_il.strftime('%d/%m/%Y') }}.</p>
+  <div class="azioni-riga">
+    <a class="btn" href="{{ url_for('risultato', vid=radiografia.id) }}">{{ ico('radar') }} Apri la radiografia</a>
+    <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=radiografia.id) }}">{{ ico('preventivo') }} Preventivo</a>
+  </div>
+  {% else %}
+  <p class="meta">Il contatto si è presentato: il passo successivo è la radiografia dello studio.</p>
+  <a class="btn oro" href="{{ url_for('nuova', contatto=c.id) }}">{{ ico('radar') }} Fai la radiografia</a>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="card" id="storia">
+  <h2>{{ ico('nota') }} Note e storia</h2>
+  <form method="post" action="{{ url_for('contatto_nota', cid=c.id) }}" class="crm-nota">
+    <textarea name="nota" rows="2" placeholder="Aggiungi una nota…" required></textarea>
+    <button class="btn piccolo" type="submit">{{ ico('piu') }} Aggiungi nota</button>
+  </form>
+  {% if c.note %}<div class="crm-nota-fissa">{{ ico('stella', size=14) }} <span>{{ c.note }}</span></div>{% endif %}
+  <ol class="crm-storia">
+    {% for a in storia %}
+    <li class="t-{{ a.tipo }} {{ 'e-' ~ a.esito if a.esito }}">
+      <span class="crm-storia-ico">{{ ico({'chiamata': 'telefono', 'appuntamento': 'calendario', 'nota': 'nota', 'assegnazione': 'sposta', 'radiografia': 'radar', 'stato': 'pipeline', 'creazione': 'piu', 'preventivo': 'preventivo'}.get(a.tipo, 'nota'), size=16) }}</span>
+      <div>
+        <p class="crm-storia-testa"><b>{% if a.tipo == 'chiamata' or a.tipo == 'appuntamento' %}{{ ETICHETTE_ESITO.get(a.esito, a.esito) }}{% elif a.tipo == 'nota' %}Nota{% elif a.tipo == 'assegnazione' %}Riassegnato{% elif a.tipo == 'radiografia' %}Radiografia{% elif a.tipo == 'stato' %}Spostato{% elif a.tipo == 'creazione' %}Inserito{% else %}{{ a.tipo|capitalize }}{% endif %}</b>
+          <small>{{ a.quando | ora_locale }}{% if utenti.get(a.utente_id) %} · {{ utenti[a.utente_id].nome }}{% endif %}</small></p>
+        {% if a.testo %}<p class="crm-storia-testo">{{ a.testo }}</p>{% endif %}
+      </div>
+    </li>
+    {% else %}
+    <li class="meta">Ancora nessuna attività.</li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section class="card">
+  <h2>{{ ico('pipeline') }} Gestisci</h2>
+  {% if aperture_per %}<p class="meta">Aperture della scheda: {% for uid, n in aperture_per.items() %}{{ utenti[uid].nome if utenti.get(uid) else '—' }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  <div class="azioni-riga">
+    <form method="post" action="{{ url_for('contatto_stato', cid=c.id) }}" class="inline">
+      <select name="stato" aria-label="Sposta nella fase">
+        {% for k, et in STATI_CONTATTO.items() %}<option value="{{ k }}" {{ 'selected' if c.stato == k }}>{{ et }}</option>{% endfor %}
+      </select>
+      <button class="btn sec-btn piccolo" type="submit">Sposta di fase</button>
+    </form>
+    {% if utente.is_admin %}
+    <form method="post" action="{{ url_for('contatti_assegna') }}" class="inline">
+      <input type="hidden" name="ids" value="{{ c.id }}">
+      <input type="hidden" name="torna" value="{{ url_for('contatto_scheda', cid=c.id) }}">
+      <select name="utente_id" aria-label="Assegna a">
+        {% for u in commerciali %}<option value="{{ u.id }}" {{ 'selected' if c.utente_id == u.id }}>{{ u.nome }}</option>{% endfor %}
+      </select>
+      <button class="btn sec-btn piccolo" type="submit">{{ ico('sposta') }} Assegna</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('contatto_elimina', cid=c.id) }}" onsubmit="return confirm('Eliminare il contatto e tutta la sua storia?')">
+      <button class="btn secondario piccolo" type="submit">{{ ico('cestino') }} Elimina</button>
+    </form>
+  </div>
+</section>
+
+<script>
+  const f = document.getElementById('f-chiamata');
+  if (f) f.addEventListener('change', () => {
+    const e = (f.querySelector('input[name=esito]:checked') || {}).value;
+    f.querySelector('.solo-app').hidden = e !== 'appuntamento';
+    f.querySelector('.solo-app input').required = e === 'appuntamento';
+    f.querySelector('.solo-richiamo').hidden = !(e === 'non_risponde' || e === 'no_appuntamento');
+  });
+</script>
+{% endblock %}

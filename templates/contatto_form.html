@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}{{ 'Modifica contatto' if c else 'Nuovo contatto' }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('contatto_scheda', cid=c.id) if c else url_for('contatti') }}">← {{ c.studio if c else 'Contatti' }}</a></p>
+<h1>{{ ico('studio', size=26) }} {{ 'Modifica contatto' if c else 'Nuovo contatto' }}</h1>
+
+{% if doppione %}
+<div class="avviso crm-doppione">
+  {{ ico('telefono') }} Questo numero c'è già: <b>{{ doppione.studio }}</b>{% if doppione.citta %} ({{ doppione.citta }}){% endif %}.
+  {% if doppione_visibile %}<a href="{{ url_for('contatto_scheda', cid=doppione.id) }}">Apri la scheda esistente</a>{% else %}È seguito da un altro commerciale.{% endif %}
+</div>
+{% endif %}
+
+<form method="post" class="card">
+  {% if doppione %}<input type="hidden" name="conferma_doppione" value="1">{% endif %}
+  <div class="griglia">
+    <label>{{ ico('studio', size=15) }} Nome studio *<input name="studio" required value="{{ form.get('studio') or (c.studio if c else '') }}" autofocus></label>
+    <label>{{ ico('utente', size=15) }} Titolare<input name="titolare" value="{{ form.get('titolare') or (c.titolare or '' if c else '') }}"></label>
+    <label>{{ ico('telefono', size=15) }} Telefono<input type="tel" name="telefono" value="{{ form.get('telefono') or (c.telefono or '' if c else '') }}" inputmode="tel"></label>
+    <label>{{ ico('mail', size=15) }} Email <small>(serve per la newsletter)</small><input type="email" name="email" value="{{ form.get('email') or (c.email or '' if c else '') }}"></label>
+    <label>{{ ico('luogo', size=15) }} Città<input name="citta" value="{{ form.get('citta') or (c.citta or '' if c else '') }}"></label>
+    <label>{{ ico('luogo', size=15) }} Indirizzo<input name="indirizzo" value="{{ form.get('indirizzo') or (c.indirizzo or '' if c else '') }}"></label>
+    <label>{{ ico('richiama', size=15) }} Da chiamare/richiamare il <small>(facoltativo)</small><input type="datetime-local" name="richiamare_il" value="{{ form.get('richiamare_il') or ((c.richiamare_il | per_input) if c else '') }}"></label>
+    {% if utente.is_admin and not c %}
+    <label>{{ ico('sposta', size=15) }} Assegna a<select name="utente_id">
+      {% for u in commerciali %}<option value="{{ u.id }}" {{ 'selected' if (form.get('utente_id') or utente.id|string) == u.id|string }}>{{ u.nome }}</option>{% endfor %}
+    </select></label>
+    {% endif %}
+  </div>
+  <label>{{ ico('stella', size=15) }} Nota fissa <small>(sempre in evidenza sulla scheda)</small><textarea name="note" rows="2">{{ form.get('note') or (c.note or '' if c else '') }}</textarea></label>
+  <div class="azioni-riga" style="margin-top:12px">
+    <button class="btn oro" type="submit">{{ ico('ok') }} {{ 'Salva' if c else ('Aggiungi comunque' if doppione else 'Aggiungi') }}</button>
+    {% if not c %}<button class="btn sec-btn" type="submit" name="dopo" value="altro">{{ ico('piu') }} Aggiungi e inseriscine un altro</button>{% endif %}
+  </div>
+</form>
+{% endblock %}

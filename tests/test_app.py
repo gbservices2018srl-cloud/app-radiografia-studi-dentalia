@@ -3,6 +3,7 @@ Test automatici: GitHub li esegue a ogni push (vedi .github/workflows/test.yml).
 In locale:  python -m unittest discover -s tests -v
 Usano un database SQLite temporaneo, quindi non toccano i dati reali.
 """
+import io
 import json
 import os
 import sys
@@ -310,6 +311,110 @@ class TestApp(unittest.TestCase):
             p = m.db.session.get(m.Preventivo, pid)
             self.assertIsNotNone(p)
             self.assertIsNone(p.valutazione_id)
+
+    # ---------------------------------------------------------------- CRM
+    def _nuovo_contatto(self, client, **campi):
+        dati = {"studio": "Studio CRM", "titolare": "Dott. Bianchi", "telefono": "070 555 0101", **campi}
+        r = client.post("/contatti/nuovo", data=dati)
+        self.assertEqual(r.status_code, 302)
+        return int(r.location.rstrip("/").rsplit("/", 1)[1])
+
+    def test_21_crm_flusso_chiamate(self):
+        cid = self._nuovo_contatto(self.marco, telefono="070 555 0101")
+        pagina = self.marco.get(f"/contatti/{cid}").get_data(as_text=True)
+        self.assertIn("Com'è andata la chiamata?", pagina)
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.stato, c.aperture), ("nuovo", 1))
+        # riaprire subito la scheda non riconta l'apertura
+        self.marco.get(f"/contatti/{cid}")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "non_risponde", "nota": "Squilla a vuoto",
+                                                          "richiamare_il": "2026-11-02T10:00"})
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.stato, c.tentativi, c.aperture), ("richiamare", 1, 1))
+            self.assertIsNotNone(c.richiamare_il)
+        # appuntamento senza data: non cambia nulla
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento"})
+        with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Contatto, cid).stato, "richiamare")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento", "appuntamento_il": "2026-11-05T15:30"})
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.stato, c.tentativi), ("appuntamento", 2))
+            self.assertEqual(c.appuntamento_il.hour, 14)   # 15:30 ora italiana = 14:30 UTC
+        r = self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "presentato_radiografia"})
+        self.assertIn(f"/nuova?contatto={cid}", r.location)
+        form = self.marco.get(f"/nuova?contatto={cid}").get_data(as_text=True)
+        self.assertIn('value="Studio CRM"', form)
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.marco.post("/nuova", data={"studio": "Studio CRM", "contatto_id": str(cid),
+                                           **{d["id"]: "2" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.stato, c.valutazione_id), ("presentato", vid))
+            self.assertEqual(m.db.session.get(m.Valutazione, vid).contatto_id, cid)
+            tipi = [a.tipo for a in m.Attivita.query.filter_by(contatto_id=cid).all()]
+            self.assertIn("radiografia", tipi)
+        # note sempre possibili, permessi e riassegnazione dall'admin
+        self.marco.post(f"/contatti/{cid}/nota", data={"nota": "Interessato al magazzino"})
+        self.assertIn("Interessato al magazzino", self.marco.get(f"/contatti/{cid}").get_data(as_text=True))
+        self.assertEqual(self.laura.get(f"/contatti/{cid}").status_code, 403)
+        self.assertEqual(self.admin.get(f"/contatti/{cid}").status_code, 200)
+        self.assertEqual(self.marco.post("/contatti/assegna", data={"ids": str(cid), "utente_id": "1"}).status_code, 403)
+        with m.app.app_context():
+            laura = m.Utente.query.filter_by(email="laura@test.it").first().id
+        self.admin.post("/contatti/assegna", data={"ids": str(cid), "utente_id": str(laura)})
+        self.assertEqual(self.laura.get(f"/contatti/{cid}").status_code, 200)
+        self.assertEqual(self.marco.get(f"/contatti/{cid}").status_code, 403)
+
+    def test_22_crm_non_interessato_va_in_newsletter(self):
+        cid = self._nuovo_contatto(self.marco, studio="Studio Newsletter", telefono="070 555 0202",
+                                   email="info@newsletter.it")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "non_interessato"})
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.stato, c.newsletter), ("non_interessato", True))
+        elenco = self.marco.get("/contatti?stato=non_interessato").get_data(as_text=True)
+        self.assertIn("Studio Newsletter", elenco)
+
+    def test_23_crm_import_csv_e_doppioni(self):
+        csv_testo = ("Nome studio;Titolare;Cellulare;Comune;Provincia\n"
+                     "Studio Uno;Dott. Uno;+39 333 1111111;Cagliari;CA\n"
+                     "Studio Due;Dott.ssa Due;070 2222222;Quartu;CA\n"
+                     "Studio Uno bis;;333 111 1111;Cagliari;CA\n"
+                     "Senza telefono;Dott. Tre;;Sassari;SS\n")
+        r = self.marco.post("/contatti/importa", content_type="multipart/form-data",
+                            data={"file": (io.BytesIO(csv_testo.encode("utf-8")), "contatti.csv")})
+        testo = r.get_data(as_text=True)
+        self.assertEqual(r.status_code, 200)
+        with m.app.app_context():
+            uno = m.Contatto.query.filter_by(studio="Studio Uno").first()
+            self.assertEqual((uno.titolare, uno.citta, uno.fonte, uno.stato), ("Dott. Uno", "Cagliari (CA)", "import", "nuovo"))
+            self.assertIsNotNone(m.Contatto.query.filter_by(studio="Studio Due").first())
+            self.assertIsNone(m.Contatto.query.filter_by(studio="Studio Uno bis").first())   # stesso telefono
+            self.assertIsNone(m.Contatto.query.filter_by(studio="Senza telefono").first())
+        self.assertIn("Importazione completata", testo)
+
+    def test_24_crm_import_excel(self):
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["Studio", "Titolare", "Telefono", "Email", "Città"])
+        ws.append(["Studio Excel", "Dott. Excel", "079 9999999", "excel@studio.it", "Sassari"])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        r = self.admin.post("/contatti/importa", content_type="multipart/form-data",
+                            data={"file": (buf, "contatti.xlsx")})
+        self.assertEqual(r.status_code, 200)
+        with m.app.app_context():
+            c = m.Contatto.query.filter_by(studio="Studio Excel").first()
+            self.assertEqual((c.email, c.citta), ("excel@studio.it", "Sassari"))
+        self.assertIn("Studio Excel", self.admin.get("/contatti?q=excel").get_data(as_text=True))
+        self.assertEqual(self.admin.get("/contatti/modello.csv").status_code, 200)
 
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():

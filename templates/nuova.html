@@ -3,14 +3,16 @@
 {% block content %}
 <h1>Nuova radiografia</h1>
 <form method="post" id="form">
+  {% if contatto %}<input type="hidden" name="contatto_id" value="{{ contatto.id }}">
+  <p class="avviso">Radiografia collegata al contatto <a href="{{ url_for('contatto_scheda', cid=contatto.id) }}"><strong>{{ contatto.studio }}</strong></a>.</p>{% endif %}
   <section class="card">
     <h2>Dati dello studio</h2>
     <div class="griglia">
-      <label>Nome studio *<input name="studio" required></label>
-      <label>Referente / titolare<input name="referente"></label>
-      <label>Città<input name="citta"></label>
-      <label>Email cliente<input type="email" name="email_cliente"></label>
-      <label>Telefono cliente<input type="tel" name="telefono_cliente"></label>
+      <label>Nome studio *<input name="studio" required value="{{ contatto.studio if contatto else '' }}"></label>
+      <label>Referente / titolare<input name="referente" value="{{ (contatto.titolare or '') if contatto else '' }}"></label>
+      <label>Città<input name="citta" value="{{ (contatto.citta or '') if contatto else '' }}"></label>
+      <label>Email cliente<input type="email" name="email_cliente" value="{{ (contatto.email or '') if contatto else '' }}"></label>
+      <label>Telefono cliente<input type="tel" name="telefono_cliente" value="{{ (contatto.telefono or '') if contatto else '' }}"></label>
     </div>
   </section>
 

@@ -325,3 +325,80 @@ h1 .dq-ico { width: 26px; height: 26px; color: var(--oro); vertical-align: -4px;
 .nota-dom { margin: 0 0 4px; font-weight: 600; font-size: .92rem; }
 .nota-txt { margin: 0; white-space: pre-wrap; }
 @media print { .note-interne, .nota-domanda { display: none !important; } }
+
+/* ================= CRM ================= */
+.ico { vertical-align: -3px; flex: none; }
+h1 .ico, h2 .ico { color: var(--oro-scuro); }
+.btn .ico { margin-right: 2px; }
+.f-nuovo { --f: #64748b; } .f-richiamare { --f: #c77700; } .f-appuntamento { --f: #2563eb; }
+.f-presentato { --f: #7c3aed; } .f-cliente { --f: var(--buono); } .f-non_interessato { --f: #9ca3af; } .tutti { --f: var(--primario); }
+.crm-oggi { display: flex; align-items: center; gap: 14px; background: var(--primario); color: #fff; border-radius: 14px; padding: 14px 18px; text-decoration: none; margin-bottom: 14px; }
+.crm-oggi b { font-size: 1.5rem; color: var(--oro); margin-right: 4px; } .crm-oggi small { display: block; opacity: .75; font-size: .8rem; }
+.crm-oggi.sel { box-shadow: 0 0 0 3px var(--oro); }
+.crm-oggi-ico { width: 46px; height: 46px; border-radius: 50%; background: rgba(204,161,101,.18); color: var(--oro); display: flex; align-items: center; justify-content: center; flex: none; }
+.crm-fasi { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 14px; }
+.crm-fase { background: var(--card); border: 1px solid var(--bordo); border-top: 4px solid var(--f); border-radius: 12px; padding: 10px; text-decoration: none; color: var(--testo); min-width: 0; }
+.crm-fase small { display: block; color: var(--tenue); font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crm-fase b { font-size: 1.3rem; } .crm-fase.sel { box-shadow: 0 0 0 2px var(--f); background: #fff; }
+.crm-sposta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; }
+.crm-sposta select { width: auto; margin: 0 0 0 6px; display: inline-block; }
+.crm-tutti { display: flex; align-items: center; gap: 6px; color: var(--testo); }
+.crm-riga { display: flex; align-items: center; gap: 10px; padding: 0 0 0 14px; border-left: 4px solid var(--f); overflow: hidden; }
+.crm-check { width: 20px; height: 20px; flex: none; accent-color: var(--primario); }
+.crm-link { flex: 1; min-width: 0; padding: 12px 0; text-decoration: none; color: inherit; }
+.crm-info p { margin: 3px 0 0; } .crm-quando { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.crm-quando .scaduto { color: var(--critico); font-weight: 600; }
+.crm-conta { color: var(--tenue); }
+.crm-stato { color: var(--f); font-weight: 600; }
+.crm-chiama { align-self: stretch; display: flex; align-items: center; justify-content: center; width: 64px; background: var(--oro-chiaro); color: var(--oro-scuro); border-left: 1px solid var(--oro-bordo); flex: none; }
+.crm-chiama:active { background: var(--oro); color: var(--primario); }
+.crm-vuoto { text-align: center; } .crm-vuoto-ico { display: inline-flex; width: 76px; height: 76px; border-radius: 50%; background: var(--oro-chiaro); color: var(--oro-scuro); align-items: center; justify-content: center; }
+.crm-testa { border-top: 5px solid var(--f); }
+.crm-testa-riga { display: flex; gap: 14px; align-items: flex-start; }
+.crm-testa h1 { margin: 0 0 4px; font-size: 1.6rem; } .crm-testa p { margin: 2px 0; }
+.crm-avatar { width: 54px; height: 54px; border-radius: 14px; background: var(--primario); color: var(--oro); display: flex; align-items: center; justify-content: center; flex: none; }
+.crm-contatti { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+.grande-tocco { padding: 12px 18px; font-size: 1rem; }
+.crm-evidenza { margin: 12px 0 0; padding: 10px 12px; background: var(--oro-chiaro); border: 1px solid var(--oro-bordo); border-radius: 10px; color: var(--primario); }
+.crm-esiti { display: grid; gap: 12px; }
+.crm-bottoni { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; } .crm-bottoni.due { grid-template-columns: 1fr 1fr; }
+.crm-esito input { position: absolute; opacity: 0; }
+.crm-esito span, .crm-esito-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 96px; padding: 10px 8px; border: 2px solid var(--bordo); border-radius: 12px; background: #fff; text-align: center; font: 600 .88rem/1.25 inherit; color: var(--testo); cursor: pointer; width: 100%; }
+.crm-esito span .ico, .crm-esito-btn .ico { color: var(--e); }
+.e-nr { --e: #c77700; } .e-no { --e: #2563eb; } .e-app { --e: var(--buono); } .e-ni { --e: #6b7280; }
+.crm-esito input:checked + span { border-color: var(--e); background: color-mix(in srgb, var(--e) 9%, #fff); box-shadow: inset 0 0 0 1px var(--e); }
+.crm-esito input:focus-visible + span { outline: 2px solid var(--primario); outline-offset: 2px; }
+.crm-esito-btn:active { background: color-mix(in srgb, var(--e) 12%, #fff); }
+.crm-percorso { border: 2px solid var(--oro-bordo); background: var(--oro-chiaro); }
+.crm-nota { display: grid; gap: 8px; margin-bottom: 14px; } .crm-nota .btn { justify-self: start; }
+.crm-nota-fissa { display: flex; gap: 8px; padding: 10px 12px; background: var(--oro-chiaro); border-radius: 10px; margin-bottom: 12px; white-space: pre-wrap; }
+.crm-nota-fissa .ico { color: var(--oro-scuro); margin-top: 2px; }
+.crm-storia { list-style: none; margin: 0; padding: 0; }
+.crm-storia li { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--bordo); }
+.crm-storia-ico { width: 32px; height: 32px; border-radius: 50%; background: var(--bg); color: var(--primario); display: flex; align-items: center; justify-content: center; flex: none; }
+.crm-storia li.e-appuntamento .crm-storia-ico, .crm-storia li.e-presentato .crm-storia-ico { background: #e8f5e9; color: var(--buono); }
+.crm-storia li.e-non_risponde .crm-storia-ico, .crm-storia li.e-non_presentato .crm-storia-ico { background: #fff4e0; color: var(--medio); }
+.crm-storia li.e-non_interessato .crm-storia-ico { background: #f1f1f1; color: #6b7280; }
+.crm-storia-testa { margin: 0; } .crm-storia-testa small { color: var(--tenue); margin-left: 6px; }
+.crm-storia-testo { margin: 3px 0 0; white-space: pre-wrap; }
+.crm-import { display: grid; gap: 12px; }
+.crm-file { position: relative; display: flex; align-items: center; gap: 14px; padding: 18px; border: 2px dashed var(--oro-bordo); border-radius: 14px; background: var(--oro-chiaro); color: var(--primario); cursor: pointer; }
+.crm-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; margin: 0; }
+.crm-file small { display: block; color: var(--tenue); }
+.crm-file-ico { width: 56px; height: 56px; border-radius: 50%; background: #fff; color: var(--oro-scuro); display: flex; align-items: center; justify-content: center; flex: none; }
+.crm-import-numeri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.crm-import-numeri div { border-radius: 12px; padding: 12px; background: var(--bg); text-align: center; }
+.crm-import-numeri b { display: block; font-size: 1.6rem; } .crm-import-numeri small { color: var(--tenue); }
+.crm-import-numeri .ok b { color: var(--buono); } .crm-import-numeri .doppi b { color: var(--medio); }
+.crm-guida-lista { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 10px; }
+.crm-guida-lista li { display: flex; gap: 10px; } .crm-guida-lista .ico { color: var(--oro-scuro); margin-top: 3px; }
+@media (max-width: 760px) {
+  .crm-fasi { grid-template-columns: repeat(4, 1fr); }
+  .crm-bottoni { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .crm-fasi { grid-template-columns: repeat(3, 1fr); }
+  .crm-import-numeri { grid-template-columns: 1fr; }
+  .crm-testa h1 { font-size: 1.3rem; }
+  .crm-contatti .btn { flex: 1 1 100%; text-align: center; }
+}

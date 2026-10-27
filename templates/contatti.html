@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Contatti{% endblock %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>{{ ico('pipeline', size=26) }} Contatti</h1>
+  <div class="azioni-riga">
+    <a class="btn sec-btn piccolo" href="{{ url_for('contatti_importa') }}">{{ ico('carica') }} Importa Excel/CSV</a>
+    <a class="btn oro" href="{{ url_for('contatto_nuovo') }}">{{ ico('piu') }} Nuovo contatto</a>
+  </div>
+</div>
+
+<a class="crm-oggi {{ 'sel' if oggi }}" href="{{ url_for('contatti', oggi=None if oggi else 1, commerciale=args.get('commerciale') or None) }}">
+  <span class="crm-oggi-ico">{{ ico('telefono', size=26) }}</span>
+  <span><b>{{ scaduti }}</b> {{ 'contatto da chiamare' if scaduti == 1 else 'contatti da chiamare' }} adesso
+  <small>nuovi e richiami con data già arrivata</small></span>
+</a>
+
+<nav class="crm-fasi" aria-label="Fasi della pipeline">
+  <a class="crm-fase tutti {{ 'sel' if not stato and not oggi }}" href="{{ url_for('contatti', q=args.get('q') or None, commerciale=args.get('commerciale') or None) }}">
+    <small>Tutti</small><b>{{ totale }}</b></a>
+  {% for k, et in STATI_CONTATTO.items() %}
+  <a class="crm-fase f-{{ k }} {{ 'sel' if stato == k }}" href="{{ url_for('contatti', stato=k, q=args.get('q') or None, commerciale=args.get('commerciale') or None) }}">
+    <small>{{ et }}</small><b>{{ conteggi[k] }}</b></a>
+  {% endfor %}
+</nav>
+
+<form method="get" class="filtri card">
+  {% if stato %}<input type="hidden" name="stato" value="{{ stato }}">{% endif %}
+  <input type="search" name="q" value="{{ args.get('q', '') }}" placeholder="Cerca studio, titolare, città, telefono…" aria-label="Cerca">
+  {% if utente.is_admin %}
+  <select name="commerciale" aria-label="Commerciale" onchange="this.form.submit()">
+    <option value="">Tutti i commerciali</option>
+    {% for u in commerciali %}<option value="{{ u.id }}" {{ 'selected' if args.get('commerciale') == u.id|string }}>{{ u.nome }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button class="btn" type="submit">{{ ico('cerca') }} Cerca</button>
+</form>
+
+{% if elenco %}
+<form method="post" action="{{ url_for('contatti_assegna') }}" id="f-assegna">
+  <input type="hidden" name="torna" value="{{ request.full_path }}">
+  {% if utente.is_admin %}
+  <div class="card crm-sposta">
+    <label class="crm-tutti"><input type="checkbox" id="sel-tutti"> Seleziona tutti</label>
+    <span class="crm-sposta-campo">{{ ico('sposta') }} Sposta i selezionati a
+      <select name="utente_id" aria-label="Commerciale di destinazione">
+        {% for u in commerciali %}<option value="{{ u.id }}">{{ u.nome }}</option>{% endfor %}
+      </select></span>
+    <button class="btn piccolo" type="submit">Sposta</button>
+  </div>
+  {% endif %}
+  <div class="lista">
+    {% for c in elenco %}
+    <div class="card crm-riga f-{{ c.stato }}">
+      {% if utente.is_admin %}<input type="checkbox" name="ids" value="{{ c.id }}" class="crm-check" aria-label="Seleziona {{ c.studio }}">{% endif %}
+      <a class="crm-link" href="{{ url_for('contatto_scheda', cid=c.id) }}">
+        <div class="crm-info">
+          <strong>{{ c.studio }}</strong>
+          <p class="meta">{% if c.titolare %}{{ c.titolare }} · {% endif %}{% if c.citta %}{{ c.citta }} · {% endif %}<span class="crm-stato f-{{ c.stato }}">{{ STATI_CONTATTO[c.stato] }}</span>{% if utente.is_admin and utenti.get(c.utente_id) %} · {{ utenti[c.utente_id].nome }}{% endif %}</p>
+          <p class="meta crm-quando">
+            {% if c.stato == 'appuntamento' and c.appuntamento_il %}{{ ico('calendario', size=14) }} {{ c.appuntamento_il | ora_locale('%d/%m alle %H:%M') }}
+            {% elif c.richiamare_il and c.stato in ('nuovo', 'richiamare') %}{{ ico('richiama', size=14) }} <span class="{{ 'scaduto' if c.richiamare_il <= adesso }}">richiamare {{ c.richiamare_il | ora_locale('%d/%m %H:%M') }}</span>
+            {% endif %}
+            <span class="crm-conta" title="Chiamate registrate · aperture della scheda">{{ ico('telefono', size=14) }} {{ c.tentativi or 0 }} · {{ ico('occhio', size=14) }} {{ c.aperture or 0 }}</span>
+          </p>
+        </div>
+      </a>
+      {% if c.telefono %}<a class="crm-chiama" href="tel:{{ c.telefono_norm or c.telefono }}" aria-label="Chiama {{ c.studio }}">{{ ico('telefono', size=22) }}</a>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% if elenco|length >= 500 %}<p class="meta">Mostrati i primi 500: usa la ricerca per trovare gli altri.</p>{% endif %}
+</form>
+{% else %}
+<div class="card vuoto crm-vuoto">
+  <span class="crm-vuoto-ico">{{ ico('telefono', size=40) }}</span>
+  <p>{{ 'Nessun contatto in questa fase.' if stato or oggi or args.get('q') else 'Ancora nessun contatto.' }}</p>
+  <div class="azioni-riga" style="justify-content:center">
+    <a class="btn oro" href="{{ url_for('contatto_nuovo') }}">{{ ico('piu') }} Aggiungi un contatto</a>
+    <a class="btn sec-btn" href="{{ url_for('contatti_importa') }}">{{ ico('carica') }} Importa da Excel/CSV</a>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  const t = document.getElementById('sel-tutti');
+  if (t) t.addEventListener('change', () => document.querySelectorAll('.crm-check').forEach(c => c.checked = t.checked));
+</script>
+{% endblock %}

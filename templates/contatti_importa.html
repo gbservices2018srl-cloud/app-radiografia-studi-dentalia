@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Importa contatti{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('contatti') }}">← Contatti</a></p>
+<h1>{{ ico('carica', size=26) }} Importa contatti</h1>
+
+{% if esito %}
+<section class="card crm-import-esito">
+  <h2>{{ ico('ok') }} Importazione completata</h2>
+  <div class="crm-import-numeri">
+    <div class="ok"><b>{{ esito.creati }}</b><small>contatti aggiunti</small></div>
+    <div class="doppi"><b>{{ esito.doppioni|length }}</b><small>già presenti (stesso telefono)</small></div>
+    <div class="scarti"><b>{{ esito.scartati }}</b><small>righe senza nome o telefono</small></div>
+  </div>
+  {% if esito.colonne %}<p class="meta">Colonne riconosciute: {% for k, v in esito.colonne.items() %}<b>{{ k }}</b> ← «{{ v }}»{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% if esito.doppioni %}<details class="gestisci"><summary>Vedi i doppioni saltati</summary><p class="meta">{{ esito.doppioni[:200] | join(', ') }}</p></details>{% endif %}
+  <a class="btn oro" href="{{ url_for('contatti', stato='nuovo') }}">{{ ico('telefono') }} Vai ai contatti da chiamare</a>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>{{ ico('carica') }} Carica un file Excel o CSV</h2>
+  <form method="post" enctype="multipart/form-data" class="crm-import">
+    <label class="crm-file">
+      <span class="crm-file-ico">{{ ico('carica', size=34) }}</span>
+      <span><b>Scegli il file</b><small>.xlsx oppure .csv · fino a 5.000 righe</small></span>
+      <input type="file" name="file" accept=".xlsx,.xlsm,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+    </label>
+    {% if utente.is_admin %}
+    <label>{{ ico('sposta', size=15) }} Assegna i contatti a<select name="utente_id">
+      {% for u in commerciali %}<option value="{{ u.id }}" {{ 'selected' if u.id == utente.id }}>{{ u.nome }}</option>{% endfor %}
+    </select></label>
+    {% endif %}
+    <button class="btn grande" type="submit">{{ ico('carica') }} Importa</button>
+  </form>
+</section>
+
+<section class="card crm-guida">
+  <h2>{{ ico('nota') }} Come preparare il file</h2>
+  <ul class="crm-guida-lista">
+    <li>{{ ico('studio', size=16) }} La <b>prima riga</b> contiene i nomi delle colonne: <i>Studio, Titolare, Telefono</i> e, se le hai, <i>Email, Città, Provincia, Indirizzo, Note</i>. Vanno bene anche nomi simili (es. «Nome studio», «Cellulare», «Comune»).</li>
+    <li>{{ ico('telefono', size=16) }} Servono almeno il <b>nome</b> (dello studio o del titolare) e il <b>telefono</b>: le righe senza vengono saltate.</li>
+    <li>{{ ico('ok', size=16) }} I numeri già presenti nell'app vengono riconosciuti e <b>non</b> vengono duplicati.</li>
+  </ul>
+  <a class="btn sec-btn piccolo" href="{{ url_for('contatti_modello') }}">{{ ico('scarica') }} Scarica il modello da compilare</a>
+</section>
+{% endblock %}

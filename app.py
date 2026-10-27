@@ -75,6 +75,7 @@ class Valutazione(db.Model):
     punteggi = db.Column(db.Text, nullable=False)   # JSON
     questionario = db.Column(db.Text)               # JSON: copia delle aree/domande usate per questa radiografia
     note_domande = db.Column(db.Text)               # JSON {domanda_id: nota}: note interne, MAI nel report consegnato
+    contatto_id = db.Column(db.Integer)             # contatto CRM da cui nasce la radiografia (se c'è)
     creata_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -135,6 +136,43 @@ class Impostazioni(db.Model):
         "Pagamento: 50% all'accettazione, saldo a fine attività.\n"
         "I prezzi si intendono IVA esclusa, salvo diversa indicazione."))
     validita_default = db.Column(db.Integer, default=30)
+
+
+class Contatto(db.Model):
+    """CRM: studio da chiamare. Ogni commerciale vede i suoi, l'admin tutti (e può riassegnarli)."""
+    id = db.Column(db.Integer, primary_key=True)
+    utente_id = db.Column(db.Integer, db.ForeignKey("utente.id"), nullable=False)
+    studio = db.Column(db.String(200), nullable=False)
+    titolare = db.Column(db.String(200))
+    telefono = db.Column(db.String(60))
+    telefono_norm = db.Column(db.String(30), index=True)   # solo cifre, per trovare i doppioni
+    email = db.Column(db.String(200))
+    citta = db.Column(db.String(120))
+    indirizzo = db.Column(db.String(300))
+    stato = db.Column(db.String(20), default="nuovo")        # vedi STATI_CONTATTO in crm.py
+    note = db.Column(db.Text)                                # appunti liberi sempre modificabili
+    richiamare_il = db.Column(db.DateTime)                   # UTC
+    appuntamento_il = db.Column(db.DateTime)                 # UTC
+    valutazione_id = db.Column(db.Integer)                   # ultima radiografia fatta (senza vincolo: si può eliminare)
+    newsletter = db.Column(db.Boolean, default=False)
+    disiscritto = db.Column(db.Boolean, default=False)
+    fonte = db.Column(db.String(30), default="manuale")      # manuale / import
+    tentativi = db.Column(db.Integer, default=0)             # chiamate registrate
+    aperture = db.Column(db.Integer, default=0)              # volte che la scheda è stata aperta
+    ultimo_contatto_il = db.Column(db.DateTime)
+    creato_il = db.Column(db.DateTime, default=datetime.utcnow)
+    modificato_il = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Attivita(db.Model):
+    """Registro di tutto ciò che succede su un contatto (chiamate, aperture, note, spostamenti)."""
+    id = db.Column(db.Integer, primary_key=True)
+    contatto_id = db.Column(db.Integer, db.ForeignKey("contatto.id"), nullable=False, index=True)
+    utente_id = db.Column(db.Integer, db.ForeignKey("utente.id"))
+    tipo = db.Column(db.String(30), nullable=False)   # creazione, apertura, chiamata, appuntamento, nota, assegnazione, radiografia, stato
+    esito = db.Column(db.String(30))
+    testo = db.Column(db.Text)
+    quando = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
 class Questionario(db.Model):
@@ -327,6 +365,16 @@ def admin_richiesto(f):
             abort(403)
         return f(*a, **k)
     return w
+
+
+def contatto_visibile_o_none(cid):
+    """Il contatto se l'utente può vederlo (suo, o admin), altrimenti None."""
+    if not cid:
+        return None
+    c = db.session.get(Contatto, cid)
+    if c and (g.utente.is_admin or c.utente_id == g.utente.id):
+        return c
+    return None
 
 
 def valutazione_visibile(vid):
@@ -573,10 +621,22 @@ def nuova():
             questionario=json.dumps(aree, ensure_ascii=False),
             note_domande=json.dumps(note_domande, ensure_ascii=False) if note_domande else None,
         )
+        c = contatto_visibile_o_none(request.form.get("contatto_id", type=int))
+        if c:
+            v.contatto_id = c.id
         db.session.add(v)
+        db.session.flush()
+        if c:
+            c.valutazione_id = v.id
+            if c.stato in ("nuovo", "richiamare", "appuntamento"):
+                c.stato = "presentato"
+            c.modificato_il = datetime.utcnow()
+            db.session.add(Attivita(contatto_id=c.id, utente_id=g.utente.id, tipo="radiografia",
+                                    testo=f"Radiografia fatta (indice {media_di(json.loads(v.punteggi))})"))
         db.session.commit()
         return redirect(url_for("risultato", vid=v.id))
-    return render_template("nuova.html", aree=aree, scala=SCALE)
+    contatto = contatto_visibile_o_none(request.args.get("contatto", type=int))
+    return render_template("nuova.html", aree=aree, scala=SCALE, contatto=contatto)
 
 
 @app.route("/valutazione/<int:vid>")
@@ -616,6 +676,7 @@ def elimina(vid):
     v = valutazione_visibile(vid)
     # i preventivi fatti da questa radiografia restano: perdono solo il collegamento
     Preventivo.query.filter_by(valutazione_id=v.id).update({"valutazione_id": None})
+    Contatto.query.filter_by(valutazione_id=v.id).update({"valutazione_id": None})
     db.session.delete(v)
     db.session.commit()
     return redirect(url_for("index"))
@@ -1070,6 +1131,8 @@ def impostazioni_azienda():
         return redirect(url_for("impostazioni_azienda"))
     return render_template("impostazioni.html", imp=imp)
 
+
+import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline, KPI — registra le sue pagine su `app`)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

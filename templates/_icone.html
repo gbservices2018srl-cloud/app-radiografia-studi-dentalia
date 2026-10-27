@@ -1,0 +1,33 @@
+{# Icone a linea (stile Dentalia). Uso: {% from "_icone.html" import ico %} … {{ ico('telefono') }} #}
+{% macro ico(nome, cls='', size=18) -%}
+<svg class="ico {{ cls }}" viewBox="0 0 24 24" width="{{ size }}" height="{{ size }}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if nome == 'telefono' %}<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/>
+{%- elif nome == 'no-risposta' %}<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/><path d="M15 3l6 6M21 3l-6 6"/>
+{%- elif nome == 'calendario' %}<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>
+{%- elif nome == 'calendario-ok' %}<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/>
+{%- elif nome == 'richiama' %}<path d="M20 11a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>
+{%- elif nome == 'stop' %}<circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/>
+{%- elif nome == 'mail' %}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>
+{%- elif nome == 'nota' %}<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>
+{%- elif nome == 'utente' %}<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
+{%- elif nome == 'studio' %}<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6M10 10h4M12 8v4"/>
+{%- elif nome == 'luogo' %}<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>
+{%- elif nome == 'carica' %}<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>
+{%- elif nome == 'scarica' %}<path d="M12 4v12M7 11l5 5 5-5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>
+{%- elif nome == 'piu' %}<path d="M12 5v14M5 12h14"/>
+{%- elif nome == 'cerca' %}<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>
+{%- elif nome == 'radar' %}<path d="M12 3l8 6-3 10H7L4 9z"/><path d="M12 8l4 3-1.5 5h-5L8 11z"/>
+{%- elif nome == 'preventivo' %}<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>
+{%- elif nome == 'ok' %}<path d="M5 12l4 4 10-10"/>
+{%- elif nome == 'x' %}<path d="M6 6l12 12M18 6L6 18"/>
+{%- elif nome == 'occhio' %}<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>
+{%- elif nome == 'sposta' %}<path d="M4 12h16M14 6l6 6-6 6"/>
+{%- elif nome == 'stella' %}<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>
+{%- elif nome == 'grafico' %}<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+{%- elif nome == 'euro' %}<path d="M17 6.5A7 7 0 1 0 17 17.5M4 10h9M4 14h9"/>
+{%- elif nome == 'pipeline' %}<path d="M4 6h16M6 12h12M9 18h6"/>
+{%- elif nome == 'orologio' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{%- elif nome == 'cestino' %}<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>
+{%- elif nome == 'modifica' %}<path d="M4 20h4L19 9l-4-4L4 16z"/>
+{%- endif %}</svg>
+{%- endmacro %}
