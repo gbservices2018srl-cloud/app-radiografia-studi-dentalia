@@ -142,6 +142,7 @@ class Impostazioni(db.Model):
     aff_prezzo = db.Column(db.Float)
     aff_minimo = db.Column(db.Float)
     aff_voci = db.Column(db.Text)       # una voce per riga
+    seq_attiva = db.Column(db.Boolean)  # sequenza email automatica accesa (spenta finché l'admin non la attiva)
 
 
 class Contatto(db.Model):
@@ -204,6 +205,29 @@ class NewsletterInvio(db.Model):
     stato = db.Column(db.String(20), default="in_coda")     # in_coda, inviata, errore, saltata
     errore = db.Column(db.String(300))
     inviata_il = db.Column(db.DateTime)
+
+
+class SequenzaEmail(db.Model):
+    """Un'email del funnel automatico: parte `giorno` giorni dopo il consenso alla newsletter."""
+    id = db.Column(db.Integer, primary_key=True)
+    giorno = db.Column(db.Integer, nullable=False, default=0)
+    oggetto = db.Column(db.String(200), nullable=False)
+    corpo = db.Column(db.Text, nullable=False)
+    cta_testo = db.Column(db.String(80))
+    cta_link = db.Column(db.String(300))
+    attiva = db.Column(db.Boolean, default=True)
+    modificata_il = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SequenzaInvio(db.Model):
+    """Email della sequenza già spedita (o tentata) a un contatto: una sola volta per coppia."""
+    __table_args__ = (db.UniqueConstraint("contatto_id", "email_id", name="uq_sequenza_contatto_email"),)
+    id = db.Column(db.Integer, primary_key=True)
+    contatto_id = db.Column(db.Integer, nullable=False, index=True)
+    email_id = db.Column(db.Integer, nullable=False)
+    stato = db.Column(db.String(20), default="in_invio")    # in_invio, inviata, errore
+    errore = db.Column(db.String(300))
+    inviata_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Questionario(db.Model):
@@ -1308,6 +1332,7 @@ def impostazioni_azienda():
 import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline — registra le sue pagine su `app`)
 import kpi  # noqa: E402,F401  (pannello KPI)
 import newsletter  # noqa: E402,F401  (newsletter: consenso, invio con la casella SMTP, disiscrizione)
+import sequenza  # noqa: E402,F401  (funnel: sequenza email automatica dopo il consenso)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

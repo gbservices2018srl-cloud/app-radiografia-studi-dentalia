@@ -4,7 +4,10 @@
 {% block content %}
 <div class="titolo-riga">
   <h1>{{ ico('mail', size=26) }} Newsletter Dentalia</h1>
-  <a class="btn oro" href="{{ url_for('newsletter_modifica') }}">{{ ico('piu') }} Nuova newsletter</a>
+  <div class="azioni-riga">
+    <a class="btn sec-btn" href="{{ url_for('sequenza_pagina') }}">{{ ico('richiama') }} Sequenza automatica</a>
+    <a class="btn oro" href="{{ url_for('newsletter_modifica') }}">{{ ico('piu') }} Nuova newsletter</a>
+  </div>
 </div>
 
 {% if not smtp_ok %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Sequenza automatica{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('newsletter') }}">← Newsletter</a></p>
+<div class="titolo-riga">
+  <h1>{{ ico('richiama', size=26) }} Sequenza automatica</h1>
+  <a class="btn sec-btn piccolo" href="{{ url_for('sequenza_email') }}">{{ ico('piu') }} Aggiungi un'email</a>
+</div>
+<p class="meta" style="margin-top:-6px">Ogni nuovo iscritto riceve queste email, una alla volta, nei giorni indicati dopo il consenso. Si ferma da sola quando il contatto prende appuntamento, si presenta, diventa affiliato o si disiscrive.</p>
+
+<section class="card seq-stato {{ 'on' if attiva else 'off' }}">
+  <span class="seq-stato-ico">{{ ico('ok' if attiva else 'stop', size=26) }}</span>
+  <div class="seq-stato-testo">
+    <h2 style="margin:0">{{ 'Sequenza attiva' if attiva else 'Sequenza spenta' }}</h2>
+    <p class="meta">{% if attiva %}Controllo ogni 15 minuti, dal lunedì al venerdì tra le 9 e le 18{% if not orario %} (ora fuori orario: riparte al prossimo orario utile){% endif %}.{% else %}Rileggi le email qui sotto, poi accendila: nessuna email parte finché è spenta.{% endif %}
+    {% if not smtp_ok %}<br><span class="nl-err">Manca la casella per l'invio (SMTP_PASSWORD su Render).</span>{% endif %}</p>
+  </div>
+  <div class="azioni-riga">
+    <form method="post"><input type="hidden" name="attiva" value="{{ '0' if attiva else '1' }}">
+      <button class="btn {{ 'secondario' if attiva else 'oro' }}" type="submit">{{ 'Spegni' if attiva else 'Attiva la sequenza' }}</button></form>
+    {% if attiva %}<form method="post" action="{{ url_for('sequenza_esegui') }}"><button class="btn sec-btn piccolo" type="submit">{{ ico('richiama') }} Controlla adesso</button></form>{% endif %}
+  </div>
+</section>
+
+<div class="nl-numeri">
+  <div class="nl-num"><span>{{ ico('mail', size=22) }}</span><b>{{ in_corso }}</b><small>iscritti nella sequenza</small></div>
+  <div class="nl-num link"><span>{{ ico('calendario-ok', size=22) }}</span><b>{{ fermati }}</b><small>fermati: hanno preso appuntamento o sono clienti</small></div>
+  <div class="nl-num grigio"><span>{{ ico('preventivo', size=22) }}</span><b>{{ emails|selectattr('attiva')|list|length }}</b><small>email attive</small></div>
+</div>
+
+<ol class="seq-linea">
+  {% for e in emails %}
+  <li class="seq-passo {{ 'spenta' if not e.attiva }}">
+    <span class="seq-giorno"><small>giorno</small><b>{{ e.giorno }}</b></span>
+    <a class="card seq-card" href="{{ url_for('sequenza_email', eid=e.id) }}">
+      <strong>{{ e.oggetto }}</strong>
+      <p class="meta">{{ e.corpo[:150] | replace('**', '') }}{{ '…' if e.corpo|length > 150 }}</p>
+      <p class="meta seq-dati">{{ ico('ok', size=14) }} {{ inviate.get(e.id, 0) }} inviate{% if errori.get(e.id) %} · <span class="nl-err">{{ errori[e.id] }} errori</span>{% endif %}{% if e.cta_testo %} · pulsante «{{ e.cta_testo }}»{% endif %}{% if not e.attiva %} · <b>disattivata</b>{% endif %}</p>
+    </a>
+  </li>
+  {% else %}
+  <li class="meta">Nessuna email nella sequenza.</li>
+  {% endfor %}
+</ol>
+{% endblock %}

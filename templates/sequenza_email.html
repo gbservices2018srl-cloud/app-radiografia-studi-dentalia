@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}{{ e.oggetto or 'Nuova email' }} · Sequenza{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('sequenza_pagina') }}">← Sequenza automatica</a></p>
+<h1>{{ ico('mail', size=26) }} {{ 'Email della sequenza' if e.id else 'Nuova email della sequenza' }}</h1>
+
+<form method="post" class="card nl-form">
+  <div class="griglia">
+    <label>{{ ico('calendario', size=15) }} Giorni dopo il consenso<input type="number" name="giorno" min="0" max="365" value="{{ e.giorno }}" required></label>
+    <label class="crm-spunta" style="align-self:end"><input type="checkbox" name="attiva" value="1" {{ 'checked' if e.attiva }}> <span>Attiva</span></label>
+  </div>
+  <label>{{ ico('preventivo', size=15) }} Oggetto *<input name="oggetto" value="{{ e.oggetto }}" maxlength="200" required></label>
+  <label>{{ ico('nota', size=15) }} Testo *<textarea name="corpo" rows="18" required>{{ e.corpo }}</textarea></label>
+  <p class="meta">Il saluto («Gentile …» o «Buongiorno»), il logo e il link per disiscriversi si aggiungono da soli. Riga vuota = nuovo paragrafo · **testo** = grassetto · righe con «- » = elenco.</p>
+  <div class="griglia">
+    <label>{{ ico('stella', size=15) }} Testo del pulsante<input name="cta_testo" value="{{ e.cta_testo or '' }}" maxlength="80" placeholder="Scopri Dentalia"></label>
+    <label>{{ ico('sposta', size=15) }} Link del pulsante<input name="cta_link" value="{{ e.cta_link or '' }}" placeholder="https://www.dentaliagroup.it/contatti/"></label>
+  </div>
+  <div class="azioni-riga">
+    <button class="btn" type="submit" name="azione" value="salva">{{ ico('ok') }} Salva</button>
+    <button class="btn sec-btn" type="submit" name="azione" value="prova" {{ 'disabled' if not smtp_ok }}>{{ ico('mail') }} Salva e manda una prova a {{ utente.email }}</button>
+  </div>
+</form>
+{% if e.id %}
+<form method="post" action="{{ url_for('sequenza_elimina', eid=e.id) }}" onsubmit="return confirm('Togliere questa email dalla sequenza?')">
+  <button class="btn secondario piccolo" type="submit">{{ ico('cestino') }} Togli dalla sequenza</button>
+</form>
+{% endif %}
+{% endblock %}

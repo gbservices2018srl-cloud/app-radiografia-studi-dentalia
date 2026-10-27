@@ -552,6 +552,52 @@ class TestApp(unittest.TestCase):
         self.assertIn("non valido", anonimo.get("/newsletter/disiscrivi/sbagliato").get_data(as_text=True))
         self.assertEqual(self.admin.get("/newsletter/esporta.csv").status_code, 200)
 
+    def test_29_sequenza_automatica(self):
+        with m.app.app_context():
+            self.assertEqual(m.SequenzaEmail.query.count(), 6)   # copy iniziale pronto
+        self.assertIn("Sequenza spenta", self.admin.get("/newsletter/sequenza").get_data(as_text=True))
+        cid = self._nuovo_contatto(self.marco, studio="Studio Funnel", titolare="Dott. Funnel", telefono="070 555 0606",
+                                   email="funnel@studio.it")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "no_appuntamento", "consenso_newsletter": "1"})
+        import sequenza as seq
+        m.app.config["EMAIL_INVIATE"] = []
+        with m.app.app_context():
+            self.assertEqual(seq.esegui_giro(), 0)                   # spenta: non parte nulla
+        self.admin.post("/newsletter/sequenza", data={"attiva": "1"})
+        with m.app.app_context():
+            self.assertEqual(seq.esegui_giro(), 1)                   # email del giorno 0
+            self.assertEqual(seq.esegui_giro(), 0)                   # mai due nello stesso giorno, la 2a è al giorno 3
+            c = m.db.session.get(m.Contatto, cid)
+            # tre giorni dopo il consenso parte la seconda
+            c.consenso_il -= __import__("datetime").timedelta(days=3)
+            for inv in m.SequenzaInvio.query.filter_by(contatto_id=cid).all():
+                inv.inviata_il -= __import__("datetime").timedelta(days=3)
+            m.db.session.commit()
+            self.assertEqual(seq.esegui_giro(), 1)
+        oggetti = [e["Subject"] for e in m.app.config["EMAIL_INVIATE"] if e["To"] == "funnel@studio.it"]
+        self.assertEqual(len(oggetti), 2)
+        self.assertIn("Promessa", oggetti[0])
+        html = m.app.config["EMAIL_INVIATE"][-1].get_body(("html",)).get_content()
+        self.assertIn("Gentile Dott. Funnel", html)
+        self.assertIn("aree/sviluppo-commerciale", html)
+        # se prende appuntamento la sequenza si ferma
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento", "appuntamento_il": "2026-12-01T10:00"})
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            c.consenso_il -= __import__("datetime").timedelta(days=30)
+            for inv in m.SequenzaInvio.query.filter_by(contatto_id=cid).all():
+                inv.inviata_il -= __import__("datetime").timedelta(days=30)
+            m.db.session.commit()
+            self.assertEqual(seq.esegui_giro(), 0)
+        # modifica di un'email e pagina
+        with m.app.app_context():
+            eid = m.SequenzaEmail.query.order_by(m.SequenzaEmail.giorno).first().id
+        self.admin.post(f"/newsletter/sequenza/{eid}", data={"giorno": "0", "oggetto": "Benvenuto nuovo", "corpo": "Testo",
+                                                           "attiva": "1", "azione": "salva"})
+        self.assertIn("Benvenuto nuovo", self.admin.get("/newsletter/sequenza").get_data(as_text=True))
+        self.admin.post("/newsletter/sequenza", data={"attiva": "0"})
+        self.assertEqual(self.marco.get("/newsletter/sequenza").status_code, 403)
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

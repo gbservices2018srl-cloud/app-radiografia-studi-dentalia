@@ -78,13 +78,16 @@ def componi(n, contatto=None, email=None):
     imp = impostazioni()
     token = contatto.token_nl if contatto else "prova"
     link = f"{app_url()}{url_for('newsletter_disiscrivi', token=token)}"
-    saluto = ""
+    saluto = "Buongiorno,\n\n"
     if contatto and contatto.titolare:
         saluto = f"Gentile {contatto.titolare},\n\n"
     testo = saluto + n.corpo
+    cta_testo = getattr(n, "cta_testo", None) or "Scopri Dentalia"
+    cta_link = getattr(n, "cta_link", None) or "https://www.dentaliagroup.it"
     html_mail = render_template("newsletter_email.html", n=n, corpo=corpo_html(testo), imp=imp, link=link,
+                                cta_testo=cta_testo, cta_link=cta_link,
                                 logo=f"{app_url()}{url_for('static', filename='brand/logo-completo.png')}")
-    piano = (f"{testo}\n\n—\n{imp.ragione_sociale} · {imp.indirizzo or ''}\n"
+    piano = (f"{testo}\n\n{cta_testo}: {cta_link}\n\n—\n{imp.ragione_sociale} · {imp.indirizzo or ''}\n"
              f"Ricevi questa email perché hai acconsentito alla newsletter Dentalia.\n"
              f"Per non riceverla più: {link}\n")
     c = conf_smtp()
@@ -93,6 +96,7 @@ def componi(n, contatto=None, email=None):
     m["From"] = formataddr((c["nome"], c["utente"] or "info@dentaliagroup.it"))
     m["To"] = email or contatto.email
     m["Message-ID"] = make_msgid(domain=(c["utente"].split("@")[-1] if "@" in c["utente"] else "dentaliagroup.it"))
+    m["Reply-To"] = c["utente"] or "info@dentaliagroup.it"
     m["List-Unsubscribe"] = f"<{link}>"
     m["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
     m.set_content(piano)

@@ -507,3 +507,17 @@ h1 .ico, h2 .ico { color: var(--oro-scuro); }
   width: 20px; height: 20px; min-width: 20px; margin: 0; padding: 0; flex: none; accent-color: var(--primario);
 }
 .crm-riga .crm-link { min-width: 0; }
+
+/* ============ Sequenza automatica ============ */
+.seq-stato { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border: 2px solid var(--bordo); }
+.seq-stato.on { border-color: var(--buono); } .seq-stato.off { border-color: var(--oro-bordo); background: var(--oro-chiaro); }
+.seq-stato-ico { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex: none; background: var(--primario); color: var(--oro); }
+.seq-stato.on .seq-stato-ico { background: var(--buono); color: #fff; }
+.seq-stato-testo { flex: 1 1 260px; } .seq-stato-testo p { margin: 4px 0 0; }
+.seq-linea { list-style: none; margin: 0; padding: 0 0 0 8px; border-left: 3px solid var(--oro-bordo); display: grid; gap: 12px; }
+.seq-passo { display: flex; gap: 12px; align-items: flex-start; margin-left: -22px; }
+.seq-passo.spenta { opacity: .55; }
+.seq-giorno { flex: none; width: 56px; height: 56px; border-radius: 50%; background: var(--primario); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 3px solid var(--bg); }
+.seq-giorno small { font-size: .6rem; text-transform: uppercase; color: var(--oro); letter-spacing: .05em; } .seq-giorno b { font-size: 1.15rem; line-height: 1; }
+.seq-card { flex: 1; min-width: 0; margin: 0; text-decoration: none; color: inherit; padding: 14px 16px; }
+.seq-card p { margin: 4px 0 0; } .seq-dati .ico { color: var(--buono); }

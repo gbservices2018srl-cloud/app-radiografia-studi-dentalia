@@ -14,7 +14,7 @@
         {{ corpo | safe }}
       </td></tr>
       <tr><td style="padding:6px 32px 30px">
-        <a href="https://www.dentaliagroup.it" style="display:inline-block;background:#cca165;color:#062039;font-weight:bold;text-decoration:none;padding:12px 22px;border-radius:8px">Scopri Dentalia</a>
+        <a href="{{ cta_link }}" style="display:inline-block;background:#cca165;color:#062039;font-weight:bold;text-decoration:none;padding:12px 22px;border-radius:8px">{{ cta_testo }}</a>
       </td></tr>
       <tr><td style="background:#f8f2e8;padding:18px 32px;font-size:12px;line-height:1.5;color:#5f6b7a">
         <strong style="color:#062039">{{ imp.ragione_sociale }}</strong>{% if imp.indirizzo %} · {{ imp.indirizzo }}{% endif %}{% if imp.piva %} · P.IVA {{ imp.piva }}{% endif %}<br>
