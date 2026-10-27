@@ -6,6 +6,10 @@
   <a class="btn" href="{{ url_for('preventivo_nuovo') }}">+ Nuovo preventivo</a>
 </div>
 
+{% if args.get('da') or args.get('tipo') or args.get('stato') == 'consegnati' %}
+<div class="avviso kpi-filtro">Filtro: {% if args.get('tipo') %}<b>{{ 'affiliazioni' if args.get('tipo') == 'affiliazione' else 'servizi' }}</b> · {% endif %}{% if args.get('stato') == 'consegnati' %}<b>consegnati, accettati o rifiutati</b> · {% endif %}{% if args.get('da') %}dal {{ args.get('da') }} al {{ args.get('a') }}{% endif %}
+  <a href="{{ url_for('kpi', da=args.get('da') or None, a=args.get('a') or None, commerciale=args.get('commerciale') or None) }}">← Torna ai KPI</a> <a href="{{ url_for('preventivi') }}">Togli filtro</a></div>
+{% endif %}
 <div class="kpi">
   {% for k, etichetta in stati.items() %}
   <a class="kpi-box stato-bordo {{ k }} {{ 'sel' if args.get('stato') == k }}" href="{{ url_for('preventivi', stato=(None if args.get('stato') == k else k), q=args.get('q') or None, commerciale=args.get('commerciale') or None) }}">

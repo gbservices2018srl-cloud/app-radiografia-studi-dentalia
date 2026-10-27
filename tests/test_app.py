@@ -486,6 +486,28 @@ class TestApp(unittest.TestCase):
             self.assertEqual((len(c["voci"]), c["prezzo"], c["minimo"]), (11, 5000.0, 4000.0))
         self.assertIn("Preventivo di affiliazione", self.admin.get("/impostazioni").get_data(as_text=True))
 
+    def test_27_pannello_kpi_cliccabile(self):
+        cid = self._nuovo_contatto(self.laura, studio="Studio KPI", telefono="070 555 0404")
+        self.laura.post(f"/contatti/{cid}/chiamata", data={"esito": "non_risponde"})
+        self.laura.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento", "appuntamento_il": "2026-11-12T11:00"})
+        self.laura.post(f"/contatti/{cid}/chiamata", data={"esito": "presentato"})
+        pagina = self.laura.get("/kpi?periodo=tutto").get_data(as_text=True)
+        self.assertIn("Imbuto commerciale", pagina)
+        self.assertIn("kpi=appuntamenti", pagina)
+        with m.app.app_context():
+            uid = m.Utente.query.filter_by(email="laura@test.it").first().id
+        for chiave in ("contattati", "appuntamenti", "presentati"):
+            elenco = self.laura.get(f"/contatti?kpi={chiave}&da=2000-01-01").get_data(as_text=True)
+            self.assertIn("Studio KPI", elenco, chiave)
+        self.assertNotIn("Studio KPI", self.laura.get("/contatti?kpi=non_interessati&da=2000-01-01").get_data(as_text=True))
+        # l'admin vede tutto il team e filtra per commerciale; la tabella dei richiami conta le chiamate
+        adm = self.admin.get(f"/kpi?periodo=tutto&commerciale={uid}").get_data(as_text=True)
+        self.assertIn("Richiami per commerciale", adm)
+        self.assertIn("Laura Verdi", adm)
+        self.assertEqual(self.admin.get("/kpi").status_code, 200)
+        for q in ("stato=consegnati&da=2000-01-01&a=2100-01-01", "tipo=affiliazione&stato=accettato", "tipo=servizi"):
+            self.assertEqual(self.admin.get(f"/preventivi?{q}").status_code, 200)
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

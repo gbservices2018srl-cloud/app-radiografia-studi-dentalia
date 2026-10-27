@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Pannello KPI{% endblock %}
+{% block content %}
+{% set f = filtri_url %}
+<div class="titolo-riga">
+  <div>
+    <h1>{{ ico('grafico', size=26) }} Pannello KPI</h1>
+    <p class="meta">Dal {{ da.strftime('%d/%m/%Y') }} al {{ a.strftime('%d/%m/%Y') }}{% if nome_filtro %} · {{ nome_filtro }}{% elif utente.is_admin %} · tutto il team{% endif %}. Tocca un numero per vedere l'elenco.</p>
+  </div>
+</div>
+
+<form method="get" class="kpi-filtri">
+  <div class="kpi-periodi" role="group" aria-label="Periodo">
+    {% for k, et in periodi.items() %}
+    <a class="kpi-chip {{ 'sel' if periodo == k }}" href="{{ url_for('kpi', periodo=k, commerciale=filtro if utente.is_admin and filtro else None) }}">{{ et }}</a>
+    {% endfor %}
+  </div>
+  <div class="kpi-date">
+    <label>Dal<input type="date" name="da" value="{{ da.isoformat() if periodo == 'personalizzato' else '' }}"></label>
+    <label>Al<input type="date" name="a" value="{{ a.isoformat() if periodo == 'personalizzato' else '' }}"></label>
+    {% if utente.is_admin %}
+    <label>Commerciale<select name="commerciale">
+      <option value="">Tutto il team</option>
+      {% for u in utenti %}<option value="{{ u.id }}" {{ 'selected' if filtro == u.id }}>{{ u.nome }}</option>{% endfor %}
+    </select></label>
+    {% endif %}
+    <button class="btn piccolo" type="submit">Applica</button>
+  </div>
+</form>
+
+<a class="crm-oggi" href="{{ url_for('contatti', oggi=1, commerciale=filtro if utente.is_admin and filtro else None) }}">
+  <span class="crm-oggi-ico">{{ ico('telefono', size=26) }}</span>
+  <span><b>{{ da_chiamare }}</b> da chiamare adesso<small>nuovi e richiami con data arrivata · tocca per iniziare</small></span>
+</a>
+
+<h2 class="kpi-sez">{{ ico('pipeline') }} Imbuto commerciale</h2>
+<div class="kpi-imbuto">
+  <a class="kpi-passo p1" href="{{ url_for('contatti', kpi='contattati', **f) }}">
+    <span class="kpi-ico">{{ ico('telefono', size=22) }}</span>
+    <small>Contattati</small><b>{{ imbuto.contattati }}</b><em>studi chiamati almeno una volta</em>
+  </a>
+  <span class="kpi-freccia" aria-hidden="true">{{ ico('sposta', size=20) }}<small>{{ perc(imbuto.appuntamenti, imbuto.contattati) }}%</small></span>
+  <a class="kpi-passo p2" href="{{ url_for('contatti', kpi='appuntamenti', **f) }}">
+    <span class="kpi-ico">{{ ico('calendario-ok', size=22) }}</span>
+    <small>Appuntamenti</small><b>{{ imbuto.appuntamenti }}</b><em><strong>{{ perc(imbuto.appuntamenti, imbuto.contattati) }}%</strong> dei contattati</em>
+  </a>
+  <span class="kpi-freccia" aria-hidden="true">{{ ico('sposta', size=20) }}<small>{{ perc(imbuto.presentati, imbuto.appuntamenti) }}%</small></span>
+  <a class="kpi-passo p3" href="{{ url_for('contatti', kpi='presentati', **f) }}">
+    <span class="kpi-ico">{{ ico('utente', size=22) }}</span>
+    <small>Presentati</small><b>{{ imbuto.presentati }}</b><em><strong>{{ perc(imbuto.presentati, imbuto.appuntamenti) }}%</strong> degli appuntamenti</em>
+  </a>
+  <span class="kpi-freccia" aria-hidden="true">{{ ico('sposta', size=20) }}<small>{{ perc(n_aff, imbuto.presentati) }}%</small></span>
+  <a class="kpi-passo p4" href="{{ url_for('preventivi', tipo='affiliazione', stato='accettato', **f) }}">
+    <span class="kpi-ico">{{ ico('stella', size=22) }}</span>
+    <small>Affiliati</small><b>{{ n_aff }}</b><em><strong>{{ perc(n_aff, imbuto.presentati) }}%</strong> dei presentati</em>
+  </a>
+</div>
+<div class="kpi-piccoli">
+  <a href="{{ url_for('contatti', kpi='non_presentati', **f) }}">{{ ico('x', size=16) }} <b>{{ imbuto.non_presentati }}</b> non si sono presentati</a>
+  <a href="{{ url_for('contatti', kpi='non_interessati', **f) }}">{{ ico('mail', size=16) }} <b>{{ imbuto.non_interessati }}</b> non interessati (newsletter)</a>
+  <a href="{{ url_for('contatti', stato='cliente', commerciale=filtro if utente.is_admin and filtro else None) }}">{{ ico('stella', size=16) }} <b>{{ affiliati_totali }}</b> studi affiliati in tutto</a>
+</div>
+
+<h2 class="kpi-sez">{{ ico('euro') }} Preventivi</h2>
+<div class="kpi-soldi">
+  <a class="kpi-euro" href="{{ url_for('preventivi', stato='consegnati', **f) }}">
+    <small>Preventivato</small><b>{{ euro_prev | euro }}</b><em>{{ n_prev }} preventiv{{ 'o' if n_prev == 1 else 'i' }} consegnat{{ 'o' if n_prev == 1 else 'i' }}</em>
+  </a>
+  <a class="kpi-euro acc" href="{{ url_for('preventivi', stato='accettato', **f) }}">
+    <small>Accettato</small><b>{{ euro_acc | euro }}</b>
+    <em><strong>{{ perc(euro_acc, euro_prev) }}%</strong> del valore · {{ n_acc }} su {{ n_prev }} ({{ perc(n_acc, n_prev) }}%)</em>
+    <span class="kpi-barra"><span style="width: {{ perc(euro_acc, euro_prev) }}%"></span></span>
+  </a>
+  <a class="kpi-euro" href="{{ url_for('preventivi', tipo='affiliazione', stato='accettato', **f) }}">
+    <small>{{ ico('stella', size=14) }} Affiliazioni accettate</small><b>{{ euro_aff | euro }}</b><em>{{ n_aff }} affiliazion{{ 'e' if n_aff == 1 else 'i' }}</em>
+  </a>
+  <a class="kpi-euro" href="{{ url_for('preventivi', tipo='servizi', stato='accettato', **f) }}">
+    <small>{{ ico('preventivo', size=14) }} Servizi accettati (upsell)</small><b>{{ euro_serv | euro }}</b><em>{{ n_serv }} preventiv{{ 'o' if n_serv == 1 else 'i' }}</em>
+  </a>
+</div>
+<div class="kpi-piccoli">
+  <a href="{{ url_for('preventivi', stato='bozza', **f) }}">{{ ico('modifica', size=16) }} <b>{{ n_bozze }}</b> in bozza ({{ euro_bozze | euro }}, non conteggiati)</a>
+  <a href="{{ url_for('preventivi', stato='rifiutato', **f) }}">{{ ico('x', size=16) }} <b>{{ n_rif }}</b> rifiutati</a>
+</div>
+<p class="meta">Importi IVA esclusa. Preventivato = consegnati, accettati e rifiutati con data nel periodo.</p>
+
+<h2 class="kpi-sez">{{ ico('richiama') }} Richiami per commerciale</h2>
+{% if righe_comm %}
+<div class="card kpi-tabella-wrap">
+  <table class="kpi-tabella">
+    <thead><tr><th>Commerciale</th><th title="Chiamate registrate con un esito">Chiamate</th><th title="Volte che hanno aperto le schede dei contatti">Aperture schede</th><th>Studi lavorati</th><th title="Chiamate per studio lavorato">Chiamate/studio</th><th>Appuntamenti</th><th>Presentati</th><th>Accettato</th></tr></thead>
+    <tbody>
+      {% for r in righe_comm %}
+      {% set fu = dict(f, commerciale=r.u.id) if utente.is_admin else f %}
+      <tr>
+        <td><b>{{ r.u.nome }}</b></td>
+        <td><a href="{{ url_for('contatti', kpi='contattati', **fu) }}">{{ r.chiamate }}</a></td>
+        <td>{{ r.aperture }}</td>
+        <td><a href="{{ url_for('contatti', kpi='contattati', **fu) }}">{{ r.lavorati }}</a></td>
+        <td>{{ r.media | num }}</td>
+        <td><a href="{{ url_for('contatti', kpi='appuntamenti', **fu) }}">{{ r.appuntamenti }}</a> <small>{{ perc(r.appuntamenti, r.lavorati) }}%</small></td>
+        <td><a href="{{ url_for('contatti', kpi='presentati', **fu) }}">{{ r.presentati }}</a> <small>{{ perc(r.presentati, r.appuntamenti) }}%</small></td>
+        <td><a href="{{ url_for('preventivi', stato='accettato', **fu) }}">{{ r.accettato | euro }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="meta">«Aperture schede» conta ogni volta che un commerciale apre la scheda di un contatto (i ritorni entro 10 minuti non si ricontano): misura quante volte ci torna sopra per richiamarlo.</p>
+{% else %}
+<div class="card vuoto"><p>{{ ico('telefono', size=24) }} Nessuna chiamata registrata in questo periodo.</p></div>
+{% endif %}
+{% endblock %}

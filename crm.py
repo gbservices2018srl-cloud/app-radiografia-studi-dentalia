@@ -119,7 +119,15 @@ def contatti():
     stato = args.get("stato") if args.get("stato") in STATI_CONTATTO else None
     q = query_visibili()
     filtro_comm = args.get("commerciale", type=int) if g.utente.is_admin else None
-    if filtro_comm:
+    kpi_attivo = None
+    if args.get("kpi"):
+        from kpi import FILTRI_KPI, ids_kpi, intervallo
+        if args["kpi"] in FILTRI_KPI:
+            da, a, _ = intervallo(args)
+            uid = filtro_comm if g.utente.is_admin else g.utente.id
+            q = q.filter(Contatto.id.in_(ids_kpi(args["kpi"], da, a, uid)))
+            kpi_attivo = {"nome": FILTRI_KPI[args["kpi"]][0], "da": da, "a": a}
+    if filtro_comm and not kpi_attivo:
         q = q.filter(Contatto.utente_id == filtro_comm)
     cerca = args.get("q", "").strip()
     if cerca:
@@ -149,7 +157,7 @@ def contatti():
     utenti = {u.id: u for u in Utente.query.all()}
     return render_template("contatti.html", elenco=elenco, conteggi=conteggi, stato=stato, oggi=oggi,
                            scaduti=scaduti, totale=sum(conteggi.values()), args=args, utenti=utenti,
-                           commerciali=commerciali_attivi(), adesso=adesso)
+                           commerciali=commerciali_attivi(), adesso=adesso, kpi_attivo=kpi_attivo)
 
 
 @app.route("/contatti/nuovo", methods=["GET", "POST"])

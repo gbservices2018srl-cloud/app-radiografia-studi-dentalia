@@ -31,6 +31,7 @@
           <a href="{{ url_for('contatti') }}">Contatti</a>
           <a href="{{ url_for('index') }}">Radiografie</a>
           <a href="{{ url_for('preventivi') }}">Preventivi</a>
+          <a href="{{ url_for('kpi') }}">Pannello KPI</a>
           {% if utente.is_admin %}
           <a href="{{ url_for('admin') }}"><strong>Pannello admin</strong></a>
           <a href="{{ url_for('admin_domande') }}">Domande radiografia</a>
@@ -47,6 +48,7 @@
     <a href="{{ url_for('contatti') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('contatt') }}">Contatti</a>
     <a href="{{ url_for('index') }}" class="{{ 'on' if request.endpoint in ('index','nuova','risultato') }}">Radiografie</a>
     <a href="{{ url_for('preventivi') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('preventiv') }}">Preventivi</a>
+    <a href="{{ url_for('kpi') }}" class="{{ 'on' if request.endpoint == 'kpi' }}">KPI</a>
     {% if utente.is_admin %}<a href="{{ url_for('admin') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('admin') }}">Admin</a>{% endif %}
   </nav>
   {% endif %}

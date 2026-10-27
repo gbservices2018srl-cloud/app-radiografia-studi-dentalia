@@ -957,6 +957,18 @@ def preventivi():
         q = q.filter_by(utente_id=request.args.get("commerciale", type=int))
     if request.args.get("stato") in STATI:
         q = q.filter_by(stato=request.args["stato"])
+    elif request.args.get("stato") == "consegnati":
+        q = q.filter(Preventivo.stato != "bozza")
+    if request.args.get("tipo") == "affiliazione":
+        q = q.filter_by(tipo="affiliazione")
+    elif request.args.get("tipo") == "servizi":
+        q = q.filter(db.or_(Preventivo.tipo.is_(None), Preventivo.tipo != "affiliazione"))
+    for chiave, op in (("da", "__ge__"), ("a", "__le__")):
+        try:
+            if request.args.get(chiave):
+                q = q.filter(getattr(Preventivo.data, op)(datetime.strptime(request.args[chiave], "%Y-%m-%d").date()))
+        except ValueError:
+            pass
     elenco = q.order_by(Preventivo.creato_il.desc()).all()
     cerca = request.args.get("q", "").strip().lower()
     if cerca:
@@ -1268,7 +1280,8 @@ def impostazioni_azienda():
     return render_template("impostazioni.html", imp=imp, aff=conf_affiliazione())
 
 
-import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline, KPI — registra le sue pagine su `app`)
+import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline — registra le sue pagine su `app`)
+import kpi  # noqa: E402,F401  (pannello KPI)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

@@ -10,6 +10,11 @@
   </div>
 </div>
 
+{% if kpi_attivo %}
+<div class="avviso kpi-filtro">{{ ico('grafico') }} <span><b>{{ kpi_attivo.nome }}</b> dal {{ kpi_attivo.da.strftime('%d/%m/%Y') }} al {{ kpi_attivo.a.strftime('%d/%m/%Y') }}</span>
+  <a href="{{ url_for('kpi', da=kpi_attivo.da.isoformat(), a=kpi_attivo.a.isoformat(), commerciale=args.get('commerciale') or None) }}">← Torna ai KPI</a>
+  <a href="{{ url_for('contatti') }}">{{ ico('x', size=14) }} Togli filtro</a></div>
+{% endif %}
 <a class="crm-oggi {{ 'sel' if oggi }}" href="{{ url_for('contatti', oggi=None if oggi else 1, commerciale=args.get('commerciale') or None) }}">
   <span class="crm-oggi-ico">{{ ico('telefono', size=26) }}</span>
   <span><b>{{ scaduti }}</b> {{ 'contatto da chiamare' if scaduti == 1 else 'contatti da chiamare' }} adesso
@@ -17,16 +22,17 @@
 </a>
 
 <nav class="crm-fasi" aria-label="Fasi della pipeline">
-  <a class="crm-fase tutti {{ 'sel' if not stato and not oggi }}" href="{{ url_for('contatti', q=args.get('q') or None, commerciale=args.get('commerciale') or None) }}">
+  <a class="crm-fase tutti {{ 'sel' if not stato and not oggi }}" href="{{ url_for('contatti', q=args.get('q') or None, commerciale=args.get('commerciale') or None, kpi=args.get('kpi') or None, da=args.get('da') or None, a=args.get('a') or None) }}">
     <small>Tutti</small><b>{{ totale }}</b></a>
   {% for k, et in STATI_CONTATTO.items() %}
-  <a class="crm-fase f-{{ k }} {{ 'sel' if stato == k }}" href="{{ url_for('contatti', stato=k, q=args.get('q') or None, commerciale=args.get('commerciale') or None) }}">
+  <a class="crm-fase f-{{ k }} {{ 'sel' if stato == k }}" href="{{ url_for('contatti', stato=k, q=args.get('q') or None, commerciale=args.get('commerciale') or None, kpi=args.get('kpi') or None, da=args.get('da') or None, a=args.get('a') or None) }}">
     <small>{{ et }}</small><b>{{ conteggi[k] }}</b></a>
   {% endfor %}
 </nav>
 
 <form method="get" class="filtri card">
   {% if stato %}<input type="hidden" name="stato" value="{{ stato }}">{% endif %}
+  {% for k in ('kpi', 'da', 'a') %}{% if args.get(k) %}<input type="hidden" name="{{ k }}" value="{{ args.get(k) }}">{% endif %}{% endfor %}
   <input type="search" name="q" value="{{ args.get('q', '') }}" placeholder="Cerca studio, titolare, città, telefono…" aria-label="Cerca">
   {% if utente.is_admin %}
   <select name="commerciale" aria-label="Commerciale" onchange="this.form.submit()">
