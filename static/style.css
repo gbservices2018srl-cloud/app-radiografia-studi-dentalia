@@ -501,3 +501,9 @@ h1 .ico, h2 .ico { color: var(--oro-scuro); }
 .nl-anteprima-corpo h3 { margin: 0 0 12px; color: var(--primario); }
 .nl-disiscrivi { text-align: center; } .nl-disiscrivi h1 { font-size: 1.4rem; }
 @media (max-width: 600px) { .nl-numeri { grid-template-columns: 1fr 1fr; } .nl-riga { flex-direction: column; align-items: stretch; } }
+
+/* caselle di selezione nel CRM: la regola generale degli input le allargava a tutta la riga */
+.crm-riga input.crm-check, .crm-tutti input[type=checkbox], .crm-spunta input[type=checkbox] {
+  width: 20px; height: 20px; min-width: 20px; margin: 0; padding: 0; flex: none; accent-color: var(--primario);
+}
+.crm-riga .crm-link { min-width: 0; }
