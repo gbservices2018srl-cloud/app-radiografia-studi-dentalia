@@ -28,8 +28,10 @@
   {% elif c.richiamare_il and c.stato in ('nuovo', 'richiamare') %}
   <p class="crm-evidenza">{{ ico('richiama') }} Da richiamare il <b>{{ c.richiamare_il | ora_locale('%d/%m/%Y alle %H:%M') }}</b></p>
   {% endif %}
-  {% if c.stato == 'non_interessato' %}
-  <p class="crm-evidenza">{{ ico('mail') }} {% if c.newsletter %}In lista newsletter Dentalia.{% elif c.disiscritto %}Si è disiscritto dalla newsletter.{% else %}Per la newsletter serve l'email: <a href="{{ url_for('contatto_modifica', cid=c.id) }}">aggiungila</a>.{% endif %}</p>
+  {% if c.newsletter %}
+  <p class="crm-evidenza">{{ ico('mail') }} Iscritto alla newsletter Dentalia{% if c.consenso_il %} · consenso del {{ c.consenso_il | ora_locale('%d/%m/%Y') }}{% if utenti.get(c.consenso_da) %} raccolto da {{ utenti[c.consenso_da].nome }}{% endif %}{% endif %}.</p>
+  {% elif c.disiscritto %}
+  <p class="crm-evidenza">{{ ico('mail') }} Si è disiscritto dalla newsletter: non va più ricontattato via email.</p>
   {% endif %}
 </section>
 
@@ -50,6 +52,13 @@
       <label>{{ ico('richiama') }} Quando richiamare (facoltativo)<input type="datetime-local" name="richiamare_il" value="{{ domani }}"></label>
     </div>
     <label>{{ ico('nota') }} Nota (facoltativa)<textarea name="nota" rows="2" placeholder="Es. la segretaria dice di richiamare dopo le 17"></textarea></label>
+    {% if not c.newsletter and not c.disiscritto %}
+    <div class="crm-consenso">
+      <label class="crm-spunta"><input type="checkbox" name="consenso_newsletter" value="1" id="chk-nl"> {{ ico('mail') }} <span>Ha acconsentito a ricevere la <b>newsletter Dentalia</b> via email</span></label>
+      {% if not c.email %}<label class="solo-nl" hidden>Email per la newsletter<input type="email" name="email_nl" placeholder="nome@studio.it"></label>{% endif %}
+      <small class="meta">Chiedilo sempre a voce: senza consenso esplicito non si possono mandare email promozionali.</small>
+    </div>
+    {% endif %}
     <button class="btn grande" type="submit">{{ ico('ok') }} Registra</button>
   </form>
 </section>
@@ -99,9 +108,9 @@
   <ol class="crm-storia">
     {% for a in storia %}
     <li class="t-{{ a.tipo }} {{ 'e-' ~ a.esito if a.esito }}">
-      <span class="crm-storia-ico">{{ ico({'chiamata': 'telefono', 'appuntamento': 'calendario', 'nota': 'nota', 'assegnazione': 'sposta', 'radiografia': 'radar', 'stato': 'pipeline', 'creazione': 'piu', 'preventivo': 'preventivo'}.get(a.tipo, 'nota'), size=16) }}</span>
+      <span class="crm-storia-ico">{{ ico({'chiamata': 'telefono', 'appuntamento': 'calendario', 'nota': 'nota', 'assegnazione': 'sposta', 'radiografia': 'radar', 'stato': 'pipeline', 'creazione': 'piu', 'preventivo': 'preventivo', 'newsletter': 'mail'}.get(a.tipo, 'nota'), size=16) }}</span>
       <div>
-        <p class="crm-storia-testa"><b>{% if a.tipo == 'chiamata' or a.tipo == 'appuntamento' %}{{ ETICHETTE_ESITO.get(a.esito, a.esito) }}{% elif a.tipo == 'nota' %}Nota{% elif a.tipo == 'assegnazione' %}Riassegnato{% elif a.tipo == 'radiografia' %}Radiografia{% elif a.tipo == 'stato' %}Spostato{% elif a.tipo == 'creazione' %}Inserito{% else %}{{ a.tipo|capitalize }}{% endif %}</b>
+        <p class="crm-storia-testa"><b>{% if a.tipo == 'chiamata' or a.tipo == 'appuntamento' %}{{ ETICHETTE_ESITO.get(a.esito, a.esito) }}{% elif a.tipo == 'nota' %}Nota{% elif a.tipo == 'assegnazione' %}Riassegnato{% elif a.tipo == 'radiografia' %}Radiografia{% elif a.tipo == 'stato' %}Spostato{% elif a.tipo == 'creazione' %}Inserito{% elif a.tipo == 'newsletter' %}Newsletter{% elif a.tipo == 'preventivo' %}Preventivo{% else %}{{ a.tipo|capitalize }}{% endif %}</b>
           <small>{{ a.quando | ora_locale }}{% if utenti.get(a.utente_id) %} · {{ utenti[a.utente_id].nome }}{% endif %}</small></p>
         {% if a.testo %}<p class="crm-storia-testo">{{ a.testo }}</p>{% endif %}
       </div>
@@ -146,5 +155,7 @@
     f.querySelector('.solo-app input').required = e === 'appuntamento';
     f.querySelector('.solo-richiamo').hidden = !(e === 'non_risponde' || e === 'no_appuntamento');
   });
+  const nl = document.getElementById('chk-nl'), em = document.querySelector('.solo-nl');
+  if (nl && em) nl.addEventListener('change', () => { em.hidden = !nl.checked; em.querySelector('input').required = nl.checked; });
 </script>
 {% endblock %}

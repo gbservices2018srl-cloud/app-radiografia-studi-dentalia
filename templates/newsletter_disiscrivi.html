@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Newsletter{% endblock %}
+{% block content %}
+<div class="login-box">
+  <img class="logo-login" src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia">
+  <div class="card nl-disiscrivi">
+    {% if prova %}
+    <h1>{{ ico('mail', size=24) }} Link di prova</h1>
+    <p>Questo è l'email di prova: nelle email vere qui il destinatario si disiscrive con un clic.</p>
+    {% elif not c %}
+    <h1>{{ ico('x', size=24) }} Link non valido</h1>
+    <p>Il link non è più valido. Per non ricevere le nostre email scrivi a <a href="mailto:info@dentaliagroup.it">info@dentaliagroup.it</a>.</p>
+    {% elif fatto %}
+    <h1>{{ ico('ok', size=24) }} Fatto</h1>
+    <p>Non riceverai più la newsletter Dentalia{% if c.email %} su <b>{{ c.email }}</b>{% endif %}.</p>
+    {% else %}
+    <h1>{{ ico('mail', size=24) }} Newsletter Dentalia</h1>
+    <p>Vuoi smettere di ricevere la newsletter Dentalia{% if c.email %} su <b>{{ c.email }}</b>{% endif %}?</p>
+    <form method="post"><button class="btn grande" type="submit">Sì, disiscrivimi</button></form>
+    {% endif %}
+  </div>
+  <p class="meta"><a href="https://www.dentaliagroup.it">dentaliagroup.it</a></p>
+</div>
+{% endblock %}

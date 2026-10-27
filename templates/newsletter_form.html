@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}{{ n.oggetto or 'Nuova newsletter' }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('newsletter') }}">← Newsletter</a></p>
+<h1>{{ ico('mail', size=26) }} {{ 'Nuova newsletter' if not n.id else ('Bozza' if n.stato == 'bozza' else 'Newsletter inviata') }}</h1>
+
+{% if n.stato == 'bozza' %}
+<form method="post" action="{{ url_for('newsletter_modifica', nid=n.id) if n.id else url_for('newsletter_modifica') }}" class="card nl-form">
+  <label>{{ ico('preventivo', size=15) }} Oggetto *<input name="oggetto" value="{{ n.oggetto }}" maxlength="200" required placeholder="Es. 3 errori che fanno perdere pazienti allo studio"></label>
+  <label>{{ ico('nota', size=15) }} Testo *<textarea name="corpo" rows="14" required placeholder="Scrivi qui il messaggio.&#10;&#10;Lascia una riga vuota tra un paragrafo e l'altro.&#10;**testo** diventa grassetto.&#10;- le righe che iniziano col trattino diventano un elenco&#10;I link (https://…) diventano cliccabili.">{{ n.corpo }}</textarea></label>
+  <p class="meta">Il saluto «Gentile …» col nome del titolare, il logo, il pulsante verso il sito e il link per disiscriversi vengono aggiunti da soli.</p>
+  <div class="azioni-riga">
+    <button class="btn" type="submit" name="azione" value="salva">{{ ico('ok') }} Salva bozza</button>
+    <button class="btn sec-btn" type="submit" name="azione" value="prova" {{ 'disabled' if not smtp_ok }}>{{ ico('mail') }} Salva e manda una prova a {{ utente.email }}</button>
+  </div>
+</form>
+{% if n.id %}
+<section class="card nl-invia">
+  <h2>{{ ico('mail') }} Invia a tutti gli iscritti</h2>
+  <p>Partirà a <b>{{ iscritti|length }}</b> iscritt{{ 'o' if iscritti|length == 1 else 'i' }} con consenso, un'email ogni pochi secondi. Puoi chiudere la pagina: l'invio continua da solo.</p>
+  {% if not smtp_ok %}<p class="nl-err">Prima va configurata la casella su Render (vedi la pagina Newsletter).</p>{% endif %}
+  <form method="post" action="{{ url_for('newsletter_invia', nid=n.id) }}" onsubmit="return confirm('Inviare la newsletter a {{ iscritti|length }} iscritti? Non si può annullare.')">
+    <button class="btn oro grande" type="submit" {{ 'disabled' if not smtp_ok or not iscritti }}>{{ ico('mail') }} Invia ora a {{ iscritti|length }} iscritti</button>
+  </form>
+  <form method="post" action="{{ url_for('newsletter_elimina', nid=n.id) }}" onsubmit="return confirm('Eliminare la bozza?')" style="margin-top:10px">
+    <button class="btn secondario piccolo" type="submit">{{ ico('cestino') }} Elimina bozza</button>
+  </form>
+</section>
+{% endif %}
+{% else %}
+<section class="card"><p class="meta">Oggetto</p><h2>{{ n.oggetto }}</h2>
+  <form method="post" action="{{ url_for('newsletter_duplica', nid=n.id) }}"><button class="btn sec-btn piccolo" type="submit">Duplica per una nuova</button></form>
+</section>
+{% endif %}
+
+{% if anteprima %}
+<section class="card nl-anteprima">
+  <h2>{{ ico('occhio') }} Anteprima del testo</h2>
+  <div class="nl-anteprima-corpo"><h3>{{ n.oggetto }}</h3>{{ anteprima | safe }}</div>
+</section>
+{% endif %}
+{% endblock %}

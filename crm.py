@@ -4,7 +4,7 @@ Le pagine vengono registrate direttamente su `app` (importato in fondo ad app.py
 
 Flusso:
   nuovo (Da chiamare) --chiamata--> non risponde / risponde senza appuntamento -> richiamare
-                                    non interessato -> non_interessato (lista newsletter)
+                                    non interessato -> non_interessato (newsletter solo con consenso)
                                     appuntamento -> appuntamento
   appuntamento --> presentato (si è presentato: si fa la radiografia) / non presentato -> richiamare
   presentato --> cliente (preventivo di affiliazione accettato)
@@ -243,7 +243,6 @@ def contatto_chiamata(cid):
             c.richiamare_il = da_locale(f.get("richiamare_il"))
         if esito == "non_interessato":
             c.richiamare_il = None
-            c.newsletter = bool(c.email) and not c.disiscritto
         c.stato = nuovo_stato
         c.tentativi = (c.tentativi or 0) + 1
         c.ultimo_contatto_il = datetime.utcnow()
@@ -262,9 +261,29 @@ def contatto_chiamata(cid):
             return redirect(url_for("nuova", contatto=c.id))
     else:
         abort(400)
+    if f.get("consenso_newsletter") == "1":
+        imposta_consenso(c, True, email=f.get("email_nl", "").strip())
     c.modificato_il = datetime.utcnow()
     db.session.commit()
     return redirect(url_for("contatto_scheda", cid=c.id))
+
+
+def imposta_consenso(c, dato, email=""):
+    """Registra (o revoca) il consenso alla newsletter raccolto dal commerciale."""
+    import secrets
+    if email and not c.email:
+        c.email = email[:200]
+    if dato and not c.newsletter:
+        if not c.email:
+            flash("Consenso newsletter non registrato: manca l'email del contatto.")
+            return
+        c.newsletter, c.disiscritto = True, False
+        c.consenso_il, c.consenso_da = datetime.utcnow(), g.utente.id
+        c.token_nl = c.token_nl or secrets.token_urlsafe(24)
+        registra(c, "newsletter", esito="consenso", testo=f"Consenso alla newsletter raccolto ({c.email})")
+    elif not dato and c.newsletter:
+        c.newsletter = False
+        registra(c, "newsletter", esito="revoca", testo="Tolto dalla newsletter")
 
 
 @app.post("/contatti/<int:cid>/nota")
@@ -291,8 +310,8 @@ def contatto_modifica(cid):
         c.telefono = f.get("telefono", "").strip()
         c.telefono_norm = norm_telefono(c.telefono)
         c.richiamare_il = da_locale(f.get("richiamare_il"))
-        if c.stato == "non_interessato":
-            c.newsletter = bool(c.email) and not c.disiscritto
+        if "consenso_presente" in f:
+            imposta_consenso(c, f.get("consenso_newsletter") == "1")
         c.modificato_il = datetime.utcnow()
         db.session.commit()
         flash("Contatto aggiornato.")
@@ -309,8 +328,6 @@ def contatto_stato(cid):
     if nuovo in STATI_CONTATTO and nuovo != c.stato:
         registra(c, "stato", esito=nuovo, testo=f"Spostato da «{STATI_CONTATTO[c.stato]}» a «{STATI_CONTATTO[nuovo]}»")
         c.stato = nuovo
-        if nuovo != "non_interessato":
-            c.newsletter = False
         c.modificato_il = datetime.utcnow()
         db.session.commit()
     return redirect(url_for("contatto_scheda", cid=c.id))

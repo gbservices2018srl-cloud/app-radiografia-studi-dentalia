@@ -28,6 +28,13 @@
     </select></label>
     {% endif %}
   </div>
+  {% if c %}
+  <input type="hidden" name="consenso_presente" value="1">
+  <label class="crm-spunta" style="margin:12px 0">
+    <input type="checkbox" name="consenso_newsletter" value="1" {{ 'checked' if c.newsletter }} {{ 'disabled' if c.disiscritto }}>
+    {{ ico('mail', size=15) }} <span>{% if c.disiscritto %}Si è disiscritto dalla newsletter (non riattivabile da qui){% else %}Iscritto alla newsletter Dentalia <small>(solo con consenso esplicito; serve l'email)</small>{% endif %}</span>
+  </label>
+  {% endif %}
   <label>{{ ico('stella', size=15) }} Nota fissa <small>(sempre in evidenza sulla scheda)</small><textarea name="note" rows="2">{{ form.get('note') or (c.note or '' if c else '') }}</textarea></label>
   <div class="azioni-riga" style="margin-top:12px">
     <button class="btn oro" type="submit">{{ ico('ok') }} {{ 'Salva' if c else ('Aggiungi comunque' if doppione else 'Aggiungi') }}</button>

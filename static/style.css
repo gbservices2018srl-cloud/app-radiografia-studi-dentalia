@@ -473,3 +473,31 @@ h1 .ico, h2 .ico { color: var(--oro-scuro); }
   .kpi-soldi { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 420px) { .kpi-soldi { grid-template-columns: 1fr; } .kpi-passo b { font-size: 1.7rem; } }
+
+.crm-consenso { display: grid; gap: 6px; padding: 12px; border-radius: 10px; background: var(--bg); }
+.crm-spunta { display: flex; align-items: center; gap: 8px; color: var(--testo); cursor: pointer; }
+.crm-spunta input { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--primario); }
+.crm-spunta .ico { color: var(--oro-scuro); }
+
+/* ============ Newsletter ============ */
+.nl-avviso { display: flex; gap: 14px; border: 2px solid var(--oro-bordo); background: var(--oro-chiaro); }
+.nl-avviso-ico { width: 52px; height: 52px; border-radius: 14px; background: var(--primario); color: var(--oro); display: flex; align-items: center; justify-content: center; flex: none; }
+.nl-env { margin: 6px 0; padding-left: 18px; } .nl-env code { background: #fff; padding: 1px 6px; border-radius: 4px; }
+.nl-numeri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+.nl-num { display: flex; flex-direction: column; align-items: flex-start; background: var(--card); border: 1px solid var(--bordo); border-radius: 14px; padding: 14px; text-decoration: none; color: var(--testo); }
+.nl-num span { width: 38px; height: 38px; border-radius: 10px; background: #e8f5e9; color: var(--buono); display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.nl-num.grigio span { background: #f1f1f1; color: #6b7280; } .nl-num.link span { background: var(--oro-chiaro); color: var(--oro-scuro); }
+.nl-num b { font: 700 1.6rem/1.1 var(--titoli); color: var(--primario); } .nl-num small { color: var(--tenue); }
+.nl-riga { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--bordo); border-left: 4px solid var(--s, #64748b); border-radius: 10px; }
+.nl-riga.s-inviata { --s: var(--buono); } .nl-riga.s-in_invio { --s: #2563eb; }
+.nl-riga-info { text-decoration: none; color: inherit; flex: 1; min-width: 0; } .nl-riga-info p { margin: 3px 0 0; }
+.nl-err { color: var(--critico); font-weight: 600; }
+.nl-iscritti { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.nl-iscritti a { padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 10px; text-decoration: none; color: var(--testo); }
+.nl-iscritti small { display: block; color: var(--tenue); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; }
+.nl-form { display: grid; gap: 12px; }
+.nl-invia { border: 2px solid var(--oro-bordo); }
+.nl-anteprima-corpo { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 18px; max-width: 600px; }
+.nl-anteprima-corpo h3 { margin: 0 0 12px; color: var(--primario); }
+.nl-disiscrivi { text-align: center; } .nl-disiscrivi h1 { font-size: 1.4rem; }
+@media (max-width: 600px) { .nl-numeri { grid-template-columns: 1fr 1fr; } .nl-riga { flex-direction: column; align-items: stretch; } }

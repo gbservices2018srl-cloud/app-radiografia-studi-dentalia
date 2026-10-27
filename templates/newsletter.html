@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Newsletter{% endblock %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>{{ ico('mail', size=26) }} Newsletter Dentalia</h1>
+  <a class="btn oro" href="{{ url_for('newsletter_modifica') }}">{{ ico('piu') }} Nuova newsletter</a>
+</div>
+
+{% if not smtp_ok %}
+<div class="card nl-avviso">
+  <span class="nl-avviso-ico">{{ ico('mail', size=26) }}</span>
+  <div>
+    <h2 style="margin:0 0 6px">Manca un ultimo passo: la casella per l'invio</h2>
+    <p>Le email partiranno da <b>{{ smtp.utente or 'info@dentaliagroup.it' }}</b>. Su Render → <b>radiografia-studio-eu</b> → <b>Environment</b> aggiungi:</p>
+    <ul class="nl-env">
+      <li><code>SMTP_USER</code> = info@dentaliagroup.it</li>
+      <li><code>SMTP_PASSWORD</code> = la password della casella info@ (quella della Webmail Aruba)</li>
+    </ul>
+    <p class="meta">Poi «Save, rebuild and deploy». Finché non c'è, puoi scrivere e salvare le bozze ma non inviarle.</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="nl-numeri">
+  <div class="nl-num"><span>{{ ico('ok', size=22) }}</span><b>{{ iscritti|length }}</b><small>iscritti con consenso</small></div>
+  <div class="nl-num grigio"><span>{{ ico('x', size=22) }}</span><b>{{ disiscritti }}</b><small>disiscritti</small></div>
+  <a class="nl-num link" href="{{ url_for('newsletter_esporta') }}"><span>{{ ico('scarica', size=22) }}</span><b>CSV</b><small>scarica gli iscritti</small></a>
+</div>
+
+<section class="card">
+  <h2>{{ ico('preventivo') }} Campagne</h2>
+  {% if campagne %}
+  <div class="lista">
+    {% for n in campagne %}
+    {% set k = conteggi.get(n.id, {}) %}
+    <div class="nl-riga s-{{ n.stato }}">
+      <a href="{{ url_for('newsletter_modifica', nid=n.id) }}" class="nl-riga-info">
+        <strong>{{ n.oggetto }}</strong>
+        <p class="meta">{% if n.stato == 'bozza' %}Bozza del {{ n.creata_il | ora_locale('%d/%m/%Y') }}{% elif n.stato == 'in_invio' %}In invio · {{ k.get('inviata', 0) }} inviate, {{ k.get('in_coda', 0) }} in coda{% else %}Inviata il {{ n.inviata_il | ora_locale('%d/%m/%Y %H:%M') }} · {{ k.get('inviata', 0) }} inviate{% endif %}{% if k.get('errore') %} · <span class="nl-err">{{ k.errore }} errori</span>{% endif %}</p>
+      </a>
+      <div class="azioni-riga">
+        {% if n.stato == 'in_invio' %}
+        <form method="post" action="{{ url_for('newsletter_invia', nid=n.id) }}"><button class="btn piccolo" type="submit">{{ ico('richiama') }} Riprendi invio</button></form>
+        {% endif %}
+        <form method="post" action="{{ url_for('newsletter_duplica', nid=n.id) }}"><button class="btn sec-btn piccolo" type="submit">Duplica</button></form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="meta">Nessuna newsletter ancora. Scrivi la prima con «Nuova newsletter».</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ ico('utente') }} Iscritti ({{ iscritti|length }})</h2>
+  {% if iscritti %}
+  <div class="nl-iscritti">
+    {% for c in iscritti %}
+    <a href="{{ url_for('contatto_scheda', cid=c.id) }}"><b>{{ c.studio }}</b><small>{{ c.email }}{% if c.consenso_il %} · consenso {{ c.consenso_il | ora_locale('%d/%m/%Y') }}{% endif %}</small></a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="meta">Nessun iscritto: il consenso si raccoglie durante la chiamata, con la spunta «Ha acconsentito a ricevere la newsletter».</p>
+  {% endif %}
+</section>
+{% endblock %}

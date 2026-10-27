@@ -377,10 +377,17 @@ class TestApp(unittest.TestCase):
     def test_22_crm_non_interessato_va_in_newsletter(self):
         cid = self._nuovo_contatto(self.marco, studio="Studio Newsletter", telefono="070 555 0202",
                                    email="info@newsletter.it")
-        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "non_interessato"})
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "non_interessato", "consenso_newsletter": "1"})
         with m.app.app_context():
             c = m.db.session.get(m.Contatto, cid)
             self.assertEqual((c.stato, c.newsletter), ("non_interessato", True))
+            self.assertIsNotNone(c.consenso_il)
+        # senza spunta del consenso non si entra in newsletter
+        cid2 = self._nuovo_contatto(self.marco, studio="Studio Senza Consenso", telefono="070 555 0909",
+                                    email="no@consenso.it")
+        self.marco.post(f"/contatti/{cid2}/chiamata", data={"esito": "non_interessato"})
+        with m.app.app_context():
+            self.assertFalse(m.db.session.get(m.Contatto, cid2).newsletter)
         elenco = self.marco.get("/contatti?stato=non_interessato").get_data(as_text=True)
         self.assertIn("Studio Newsletter", elenco)
 
@@ -507,6 +514,43 @@ class TestApp(unittest.TestCase):
         self.assertEqual(self.admin.get("/kpi").status_code, 200)
         for q in ("stato=consegnati&da=2000-01-01&a=2100-01-01", "tipo=affiliazione&stato=accettato", "tipo=servizi"):
             self.assertEqual(self.admin.get(f"/preventivi?{q}").status_code, 200)
+
+    def test_28_newsletter_invio_e_disiscrizione(self):
+        cid = self._nuovo_contatto(self.marco, studio="Studio Iscritto", titolare="Dott. Iscritto", telefono="070 555 0505")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "non_interessato", "consenso_newsletter": "1",
+                                                          "email_nl": "iscritto@studio.it"})
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.newsletter, c.email), (True, "iscritto@studio.it"))
+            token = c.token_nl
+        self.assertEqual(self.marco.get("/newsletter").status_code, 403)
+        self.assertIn("Studio Iscritto", self.admin.get("/newsletter").get_data(as_text=True))
+        m.app.config["EMAIL_INVIATE"] = []
+        r = self.admin.post("/newsletter/nuova", data={"oggetto": "Novità Dentalia", "azione": "salva",
+                                                     "corpo": "Ciao **a tutti**.\n\n- primo punto\n- secondo punto\n\nhttps://www.dentaliagroup.it"})
+        nid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        self.assertIn("<strong>a tutti</strong>", self.admin.get(f"/newsletter/{nid}").get_data(as_text=True))
+        self.admin.post(f"/newsletter/{nid}/prova")
+        self.assertEqual(len(m.app.config["EMAIL_INVIATE"]), 1)
+        self.assertEqual(m.app.config["EMAIL_INVIATE"][0]["To"], "admin@test.it")
+        self.admin.post(f"/newsletter/{nid}/invia")
+        inviate = [e for e in m.app.config["EMAIL_INVIATE"] if e["To"] == "iscritto@studio.it"]
+        self.assertEqual(len(inviate), 1)
+        html = inviate[0].get_body(("html",)).get_content()
+        self.assertIn(f"/newsletter/disiscrivi/{token}", html)
+        self.assertIn("Gentile Dott. Iscritto", html)
+        self.assertIn("List-Unsubscribe", str(inviate[0]))
+        with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Newsletter, nid).stato, "inviata")
+        # disiscrizione col link (senza login)
+        anonimo = m.app.test_client()
+        self.assertIn("Sì, disiscrivimi", anonimo.get(f"/newsletter/disiscrivi/{token}").get_data(as_text=True))
+        self.assertIn("Non riceverai più", anonimo.post(f"/newsletter/disiscrivi/{token}").get_data(as_text=True))
+        with m.app.app_context():
+            c = m.db.session.get(m.Contatto, cid)
+            self.assertEqual((c.newsletter, c.disiscritto), (False, True))
+        self.assertIn("non valido", anonimo.get("/newsletter/disiscrivi/sbagliato").get_data(as_text=True))
+        self.assertEqual(self.admin.get("/newsletter/esporta.csv").status_code, 200)
 
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():

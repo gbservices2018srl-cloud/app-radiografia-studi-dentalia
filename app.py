@@ -160,8 +160,11 @@ class Contatto(db.Model):
     richiamare_il = db.Column(db.DateTime)                   # UTC
     appuntamento_il = db.Column(db.DateTime)                 # UTC
     valutazione_id = db.Column(db.Integer)                   # ultima radiografia fatta (senza vincolo: si può eliminare)
-    newsletter = db.Column(db.Boolean, default=False)
-    disiscritto = db.Column(db.Boolean, default=False)
+    newsletter = db.Column(db.Boolean, default=False)        # True = consenso dato e iscritto alla newsletter
+    disiscritto = db.Column(db.Boolean, default=False)       # si è tolto da solo col link nell'email
+    consenso_il = db.Column(db.DateTime)                     # quando è stato raccolto il consenso (UTC)
+    consenso_da = db.Column(db.Integer)                      # utente che l'ha raccolto
+    token_nl = db.Column(db.String(40), index=True)          # per il link di disiscrizione
     fonte = db.Column(db.String(30), default="manuale")      # manuale / import
     tentativi = db.Column(db.Integer, default=0)             # chiamate registrate
     aperture = db.Column(db.Integer, default=0)              # volte che la scheda è stata aperta
@@ -179,6 +182,28 @@ class Attivita(db.Model):
     esito = db.Column(db.String(30))
     testo = db.Column(db.Text)
     quando = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
+class Newsletter(db.Model):
+    """Una campagna email inviata dall'app (casella SMTP configurata su Render)."""
+    id = db.Column(db.Integer, primary_key=True)
+    oggetto = db.Column(db.String(200), nullable=False)
+    corpo = db.Column(db.Text, nullable=False)              # testo semplice: righe vuote = paragrafi, **grassetto**, link
+    stato = db.Column(db.String(20), default="bozza")       # bozza, in_invio, inviata
+    creata_da = db.Column(db.Integer)
+    creata_il = db.Column(db.DateTime, default=datetime.utcnow)
+    inviata_il = db.Column(db.DateTime)
+
+
+class NewsletterInvio(db.Model):
+    """Un destinatario di una campagna: permette di riprendere l'invio se si interrompe."""
+    id = db.Column(db.Integer, primary_key=True)
+    newsletter_id = db.Column(db.Integer, db.ForeignKey("newsletter.id"), nullable=False, index=True)
+    contatto_id = db.Column(db.Integer)
+    email = db.Column(db.String(200), nullable=False)
+    stato = db.Column(db.String(20), default="in_coda")     # in_coda, inviata, errore, saltata
+    errore = db.Column(db.String(300))
+    inviata_il = db.Column(db.DateTime)
 
 
 class Questionario(db.Model):
@@ -1282,6 +1307,7 @@ def impostazioni_azienda():
 
 import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline — registra le sue pagine su `app`)
 import kpi  # noqa: E402,F401  (pannello KPI)
+import newsletter  # noqa: E402,F401  (newsletter: consenso, invio con la casella SMTP, disiscrizione)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")
