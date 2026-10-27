@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% from "_firma.html" import riquadro_firma, script_firma %}
+{% block title %}Contratto {{ k.codice }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('contratti') }}">← Contratti</a>{% if p %} · <a href="{{ url_for('preventivo_modifica', pid=p.id) }}">Preventivo di affiliazione {{ p.codice }}</a>{% endif %}</p>
+<div class="titolo-riga">
+  <div>
+    <h1>{{ ico('modifica', size=26) }} Contratto {{ k.codice }} <span class="k-stato s-{{ k.stato }}">{{ stati[k.stato] }}</span></h1>
+    <p class="meta">{{ k.ragione_sociale or '—' }} · consulente {{ consulente.nome if consulente else '—' }}</p>
+  </div>
+  <a class="btn sec-btn piccolo" href="{{ url_for('contratto_stampa', kid=k.id) }}" target="_blank">{{ ico('scarica') }} Stampa / PDF</a>
+</div>
+
+<ol class="k-passi">
+  <li class="{{ 'fatto' if k.stato != 'da_compilare' else 'ora' }}"><span>{{ ico('modifica', size=18) }}</span>Dati del cliente</li>
+  <li class="{{ 'fatto' if k.stato == 'firmato' else ('ora' if k.stato == 'da_firmare' else '') }}"><span>{{ ico('nota', size=18) }}</span>Firma</li>
+  <li class="{{ 'fatto' if k.stato == 'firmato' else '' }}"><span>{{ ico('stella', size=18) }}</span>Affiliato</li>
+</ol>
+
+{% if provvisorio and k.stato != 'firmato' %}
+<p class="avviso">{{ ico('nota') }} Il testo è la <b>bozza provvisoria</b>: quando arriva il modello dei legali, incollalo in <a href="{{ url_for('impostazioni_azienda') }}#contratto">Dati aziendali → Modello del contratto</a>.</p>
+{% endif %}
+
+{% if k.stato == 'firmato' %}
+<section class="card firma-ok">
+  <span class="firma-ok-ico">{{ ico('ok', size=34) }}</span>
+  <h2>Firmato da {{ k.firmatario }} il {{ k.firmato_il | ora_locale('%d/%m/%Y alle %H:%M') }}</h2>
+  <p class="meta">{{ 'Firmato sul dispositivo del consulente' if k.firma_modo == 'dispositivo' else 'Firmato dal cliente tramite link' }} · impronta del testo SHA-256 {{ (k.hash_testo or '')[:16] }}…</p>
+  <img class="k-firma-img" src="{{ k.firma }}" alt="Firma del cliente">
+  {% if k.firma_azienda %}<p class="meta">Controfirma {{ k.firmatario_azienda }} · {{ k.firmato_azienda_il | ora_locale('%d/%m/%Y') }}</p><img class="k-firma-img" src="{{ k.firma_azienda }}" alt="Firma per l'azienda">{% endif %}
+  <div class="azioni-riga">
+    {% if p and p.valutazione_id %}<a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=p.valutazione_id) }}">{{ ico('preventivo') }} Crea preventivo dei servizi</a>{% endif %}
+    <a class="btn sec-btn" href="{{ url_for('contratto_stampa', kid=k.id) }}" target="_blank">{{ ico('scarica') }} Copia firmata (PDF)</a>
+  </div>
+  {% if not k.firma_azienda %}
+  <details class="gestisci"><summary>{{ ico('modifica', size=14) }} Aggiungi la controfirma per Consulting Sardegna</summary>
+    <form method="post" action="{{ url_for('contratto_firma_azienda', kid=k.id) }}" class="con-firma firma-form">
+      <label>Nome di chi firma<input name="firmatario_azienda" value="{{ utente.nome }}"></label>
+      {{ riquadro_firma('firma_azienda', 'Firma per Consulting Sardegna', True) }}
+      <button class="btn" type="submit">Salva la controfirma</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+{% elif k.stato == 'da_firmare' %}
+<section class="card k-firma-scelta">
+  <h2>{{ ico('nota') }} Come firma il cliente?</h2>
+  <div class="k-due">
+    <a class="k-modo" href="{{ url_for('contratto_firma_dispositivo', kid=k.id) }}">
+      <span>{{ ico('modifica', size=30) }}</span><b>Firma qui, adesso</b><small>Il cliente firma col dito su questo telefono o tablet.</small>
+    </a>
+    <div class="k-modo">
+      <span>{{ ico('mail', size=30) }}</span><b>Manda il link al cliente</b><small>Lo apre dal suo telefono e firma quando vuole.</small>
+      <div class="k-link"><input id="link-firma" value="{{ link }}" readonly aria-label="Link di firma"><button type="button" class="btn piccolo" onclick="navigator.clipboard.writeText(document.getElementById('link-firma').value);this.textContent='Copiato ✓'">Copia</button></div>
+      <div class="azioni-riga">
+        <a class="btn sec-btn piccolo" target="_blank" href="https://wa.me/?text={{ ('Gentile ' ~ (k.legale_rappresentante or '') ~ ', ecco il contratto di affiliazione Dentalia da firmare: ' ~ link) | urlencode }}">WhatsApp</a>
+        <form method="post" action="{{ url_for('contratto_invia_link', kid=k.id) }}" class="inline">
+          <input type="email" name="email" value="{{ k.email or '' }}" placeholder="email del cliente" required aria-label="Email del cliente">
+          <button class="btn sec-btn piccolo" type="submit">{{ ico('mail', size=14) }} Invia via email</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if k.stato in ('da_compilare', 'da_firmare') %}
+<form method="post" class="card">
+  <h2>{{ ico('studio') }} Dati del cliente per il contratto</h2>
+  {% if mancano %}<p class="meta">Mancano: <b>{{ mancano | join(', ') }}</b>.</p>{% endif %}
+  <div class="griglia">
+    {% for campo, et, obbl in campi %}
+    <label>{{ et }}{{ ' *' if obbl }}<input name="{{ campo }}" value="{{ k[campo] or '' }}" {{ 'maxlength=4' if campo == 'provincia' }}{{ ' type=email' if campo in ('email', 'pec') }}></label>
+    {% endfor %}
+  </div>
+  <label style="display:block;margin-top:12px">Note interne (non vanno nel contratto)<textarea name="note" rows="2">{{ k.note or '' }}</textarea></label>
+  {% if k.stato == 'da_firmare' %}<p class="meta">Se cambi i dati, il contratto torna «da compilare» e va preparato di nuovo prima della firma.</p>{% endif %}
+  <div class="azioni-riga" style="margin-top:12px">
+    <button class="btn sec-btn" type="submit" name="azione" value="salva">{{ ico('ok') }} Salva i dati</button>
+    {% if k.stato == 'da_compilare' %}<button class="btn oro" type="submit" name="azione" value="pronto">{{ ico('nota') }} Prepara il contratto per la firma</button>{% endif %}
+  </div>
+</form>
+{% endif %}
+
+<section class="card contratto-testo">
+  <h2>{{ ico('occhio') }} {{ 'Testo firmato' if k.stato == 'firmato' else 'Anteprima del contratto' }}</h2>
+  {% for b in anteprima | paragrafi_contratto %}
+    {% if b.tipo == 'titolo' %}<h3>{{ b.testo }}</h3>
+    {% elif b.tipo == 'elenco' %}<ul>{% for r in b.righe %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% else %}<p>{% for r in b.righe %}{{ r }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
+  {% endfor %}
+</section>
+
+{% if k.stato != 'firmato' or utente.is_admin %}
+<form method="post" action="{{ url_for('contratto_annulla', kid=k.id) }}" onsubmit="return confirm('Annullare il contratto {{ k.codice }}?')">
+  <button class="btn secondario piccolo" type="submit">{{ ico('x') }} Annulla contratto</button>
+</form>
+{% endif %}
+{{ script_firma() }}
+{% endblock %}

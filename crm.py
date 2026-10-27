@@ -29,6 +29,7 @@ STATI_CONTATTO = {
     "richiamare": "Da richiamare",
     "appuntamento": "Appuntamento",
     "presentato": "Incontrato",
+    "contratto": "Da firmare",
     "cliente": "Affiliato",
     "non_interessato": "Non interessato",
 }

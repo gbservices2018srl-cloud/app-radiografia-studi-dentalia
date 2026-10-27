@@ -31,6 +31,17 @@
     <p class="meta">Collegando una radiografia i dati del cliente si compilano e compaiono le voci di listino suggerite per le aree da migliorare.</p>
   </section>
 
+  {% if affiliazione and contratto %}
+  <section class="card k-banner s-{{ contratto.stato }}">
+    <span class="aff-ico">{{ ico('modifica', size=24) }}</span>
+    <div>
+      {% if contratto.stato == 'firmato' %}<h2 style="margin:0">Contratto {{ contratto.codice }} firmato</h2><p class="meta">Lo studio è affiliato: si possono fare i preventivi dei servizi.</p>
+      {% else %}<h2 style="margin:0">Contratto {{ contratto.codice }} da firmare</h2><p class="meta">L'affiliazione è accettata: completa i dati e fai firmare il contratto. Solo dopo la firma lo studio è affiliato.</p>{% endif %}
+    </div>
+    <a class="btn oro" href="{{ url_for('contratto_scheda', kid=contratto.id) }}">{{ 'Apri il contratto' if contratto.stato == 'firmato' else 'Vai al contratto' }}</a>
+  </section>
+  {% endif %}
+
   {% if affiliazione %}
   {% set prezzo_att = aff_prezzo if aff_prezzo else aff.prezzo %}
   <section class="card aff-blocco">

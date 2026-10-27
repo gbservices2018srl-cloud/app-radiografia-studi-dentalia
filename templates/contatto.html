@@ -82,6 +82,13 @@
     </form>
   </details>
 </section>
+{% elif c.stato == 'contratto' %}
+<section class="card crm-percorso">
+  <h2>{{ ico('modifica') }} Contratto di affiliazione da firmare</h2>
+  <p class="meta">L'affiliazione è accettata: lo studio diventa Affiliato quando firma il contratto.</p>
+  <a class="btn oro" href="{{ url_for('contratti', stato='da_compilare') }}">{{ ico('modifica') }} Vai ai contratti</a>
+  {% if radiografia %}<a class="btn sec-btn" href="{{ url_for('risultato', vid=radiografia.id) }}">{{ ico('radar') }} Radiografia</a>{% endif %}
+</section>
 {% else %}
 <section class="card crm-percorso">
   <h2>{{ ico('radar') }} Radiografia e preventivi</h2>

@@ -331,12 +331,12 @@ h1 .dq-ico { width: 26px; height: 26px; color: var(--oro); vertical-align: -4px;
 h1 .ico, h2 .ico { color: var(--oro-scuro); }
 .btn .ico { margin-right: 2px; }
 .f-nuovo { --f: #64748b; } .f-richiamare { --f: #c77700; } .f-appuntamento { --f: #2563eb; }
-.f-presentato { --f: #7c3aed; } .f-cliente { --f: var(--buono); } .f-non_interessato { --f: #9ca3af; } .tutti { --f: var(--primario); }
+.f-presentato { --f: #7c3aed; } .f-contratto { --f: var(--oro-scuro); } .f-cliente { --f: var(--buono); } .f-non_interessato { --f: #9ca3af; } .tutti { --f: var(--primario); }
 .crm-oggi { display: flex; align-items: center; gap: 14px; background: var(--primario); color: #fff; border-radius: 14px; padding: 14px 18px; text-decoration: none; margin-bottom: 14px; }
 .crm-oggi b { font-size: 1.5rem; color: var(--oro); margin-right: 4px; } .crm-oggi small { display: block; opacity: .75; font-size: .8rem; }
 .crm-oggi.sel { box-shadow: 0 0 0 3px var(--oro); }
 .crm-oggi-ico { width: 46px; height: 46px; border-radius: 50%; background: rgba(204,161,101,.18); color: var(--oro); display: flex; align-items: center; justify-content: center; flex: none; }
-.crm-fasi { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 14px; }
+.crm-fasi { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin-bottom: 14px; }
 .crm-fase { background: var(--card); border: 1px solid var(--bordo); border-top: 4px solid var(--f); border-radius: 12px; padding: 10px; text-decoration: none; color: var(--testo); min-width: 0; }
 .crm-fase small { display: block; color: var(--tenue); font-size: .75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crm-fase b { font-size: 1.3rem; } .crm-fase.sel { box-shadow: 0 0 0 2px var(--f); background: #fff; }
@@ -521,3 +521,40 @@ h1 .ico, h2 .ico { color: var(--oro-scuro); }
 .seq-giorno small { font-size: .6rem; text-transform: uppercase; color: var(--oro); letter-spacing: .05em; } .seq-giorno b { font-size: 1.15rem; line-height: 1; }
 .seq-card { flex: 1; min-width: 0; margin: 0; text-decoration: none; color: inherit; padding: 14px 16px; }
 .seq-card p { margin: 4px 0 0; } .seq-dati .ico { color: var(--buono); }
+
+/* ============ Contratti ============ */
+.k-stato { display: inline-block; font: 600 .78rem/1 Inter, sans-serif; padding: 5px 10px; border-radius: 999px; background: var(--bg); color: var(--k, #64748b); border: 1px solid currentColor; vertical-align: middle; white-space: nowrap; }
+.s-da_compilare { --k: #64748b; --f: #64748b; } .s-da_firmare { --k: var(--oro-scuro); --f: var(--oro-scuro); } .s-firmato { --k: var(--buono); --f: var(--buono); } .s-annullato { --k: #9ca3af; --f: #9ca3af; }
+.k-fasi { grid-template-columns: repeat(5, 1fr); }
+.k-riga { border-left: 4px solid var(--k, var(--bordo)); }
+.k-passi { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0 0 16px; }
+.k-passi li { flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--bordo); color: var(--tenue); font-weight: 600; font-size: .9rem; }
+.k-passi li span { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bg); flex: none; }
+.k-passi li.ora { border-color: var(--oro); color: var(--primario); } .k-passi li.ora span { background: var(--oro); color: var(--primario); }
+.k-passi li.fatto { color: var(--buono); } .k-passi li.fatto span { background: #e8f5e9; color: var(--buono); }
+.k-due { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
+.k-modo { display: flex; flex-direction: column; gap: 6px; padding: 16px; border: 2px solid var(--bordo); border-radius: 14px; text-decoration: none; color: var(--testo); background: #fff; }
+a.k-modo:hover { border-color: var(--oro); }
+.k-modo > span { width: 52px; height: 52px; border-radius: 14px; background: var(--primario); color: var(--oro); display: flex; align-items: center; justify-content: center; }
+.k-modo b { font-size: 1.05rem; } .k-modo small { color: var(--tenue); }
+.k-link { display: flex; gap: 6px; } .k-link input { margin: 0; font-size: .8rem; }
+.k-modo .inline input { margin: 0; min-width: 180px; }
+.k-banner { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; border: 2px solid var(--k); }
+.k-banner > div { flex: 1 1 240px; }
+.contratto-testo h3 { font-family: var(--titoli); color: var(--primario); font-size: 1rem; letter-spacing: .04em; margin: 18px 0 6px; }
+.contratto-testo p, .contratto-testo li { line-height: 1.6; }
+.contratto-testo.scorre { max-height: 55vh; overflow-y: auto; }
+.firma-form { display: grid; gap: 12px; }
+.firma-box { border: 2px dashed var(--oro-bordo); border-radius: 14px; padding: 10px; background: #fff; }
+.firma-box.firmata { border-style: solid; border-color: var(--primario); }
+.firma-testa { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.firma-pulisci { background: none; border: 0; color: var(--critico); font: inherit; cursor: pointer; }
+.firma-tela { display: block; width: 100%; height: 180px; touch-action: none; background: repeating-linear-gradient(0deg, transparent, transparent 139px, #e3e1dc 139px, #e3e1dc 141px, transparent 141px); border-radius: 8px; cursor: crosshair; }
+.firma-hint { margin: 4px 0 0; font-size: .8rem; color: var(--tenue); text-align: center; } .firma-box.firmata .firma-hint { visibility: hidden; }
+.firma-ok { text-align: center; border: 2px solid var(--buono); }
+.firma-ok-ico { display: inline-flex; width: 70px; height: 70px; border-radius: 50%; background: #e8f5e9; color: var(--buono); align-items: center; justify-content: center; }
+.firma-ok .azioni-riga { justify-content: center; margin-top: 10px; }
+.k-firma-img { display: block; max-width: 320px; width: 100%; height: 110px; object-fit: contain; margin: 8px auto; background: #fff; border: 1px solid var(--bordo); border-radius: 10px; }
+.firma-logo { text-align: center; margin: 10px 0 18px; } .firma-logo img { width: 190px; max-width: 60%; }
+.segnaposto { columns: 2; font-size: .85rem; padding-left: 18px; } .segnaposto code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+@media (max-width: 760px) { .k-due { grid-template-columns: 1fr; } .k-fasi { grid-template-columns: repeat(3, 1fr); } .segnaposto { columns: 1; } .k-passi li { font-size: .78rem; padding: 8px; } }

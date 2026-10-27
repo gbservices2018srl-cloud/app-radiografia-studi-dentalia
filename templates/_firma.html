@@ -1,0 +1,40 @@
+{# Riquadro di firma col dito/mouse. Uso: {{ riquadro_firma('firma', 'Firma del cliente') }}; poi includere lo script una volta. #}
+{% macro riquadro_firma(nome, etichetta, obbligatoria=False) -%}
+<div class="firma-box {{ 'obbligatoria' if obbligatoria }}" data-campo="{{ nome }}">
+  <div class="firma-testa"><b>{{ etichetta }}</b><button type="button" class="firma-pulisci">Cancella</button></div>
+  <canvas class="firma-tela" aria-label="{{ etichetta }}: firma col dito o col mouse"></canvas>
+  <p class="firma-hint">Firma qui col dito (o col mouse)</p>
+  <input type="hidden" name="{{ nome }}">
+</div>
+{%- endmacro %}
+
+{% macro script_firma() -%}
+<script>
+document.querySelectorAll('.firma-box').forEach(box => {
+  const tela = box.querySelector('canvas'), ctx = tela.getContext('2d'), campo = box.querySelector('input');
+  let disegna = false, vuota = true, ultimo = null;
+  function dimensiona() {
+    const r = tela.getBoundingClientRect(), d = window.devicePixelRatio || 1, copia = vuota ? null : tela.toDataURL();
+    tela.width = r.width * d; tela.height = r.height * d; ctx.scale(d, d);
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#062039';
+    if (copia) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = copia; }
+  }
+  const pos = e => { const r = tela.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  tela.addEventListener('pointerdown', e => { disegna = true; ultimo = pos(e); tela.setPointerCapture(e.pointerId); e.preventDefault(); });
+  tela.addEventListener('pointermove', e => {
+    if (!disegna) return;
+    const p = pos(e); ctx.beginPath(); ctx.moveTo(ultimo.x, ultimo.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    ultimo = p; vuota = false; box.classList.add('firmata');
+  });
+  const fine = () => { if (disegna) { disegna = false; campo.value = vuota ? '' : tela.toDataURL('image/png'); } };
+  tela.addEventListener('pointerup', fine); tela.addEventListener('pointercancel', fine); tela.addEventListener('pointerleave', fine);
+  box.querySelector('.firma-pulisci').onclick = () => { ctx.clearRect(0, 0, tela.width, tela.height); vuota = true; campo.value = ''; box.classList.remove('firmata'); };
+  window.addEventListener('resize', dimensiona); dimensiona();
+  const det = box.closest('details'); if (det) det.addEventListener('toggle', dimensiona);
+});
+document.querySelectorAll('form.con-firma').forEach(f => f.addEventListener('submit', e => {
+  const obbl = f.querySelector('.firma-box.obbligatoria input');
+  if (obbl && !obbl.value) { e.preventDefault(); alert('Manca la firma nel riquadro.'); }
+}));
+</script>
+{%- endmacro %}

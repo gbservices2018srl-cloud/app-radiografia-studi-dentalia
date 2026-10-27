@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Contratti{% endblock %}
+{% block content %}
+<div class="titolo-riga"><h1>{{ ico('modifica', size=26) }} Contratti di affiliazione</h1></div>
+<p class="meta" style="margin-top:-6px">Si generano da soli quando un preventivo di affiliazione viene segnato «Accettato».</p>
+
+<nav class="crm-fasi k-fasi">
+  <a class="crm-fase tutti {{ 'sel' if not stato }}" href="{{ url_for('contratti') }}"><small>Tutti</small><b>{{ conteggi.values() | sum }}</b></a>
+  {% for kk, et in stati.items() %}
+  <a class="crm-fase s-{{ kk }} {{ 'sel' if stato == kk }}" href="{{ url_for('contratti', stato=kk) }}"><small>{{ et }}</small><b>{{ conteggi.get(kk, 0) }}</b></a>
+  {% endfor %}
+</nav>
+
+{% if elenco %}
+<div class="lista">
+  {% for k in elenco %}
+  <a class="card cliente k-riga s-{{ k.stato }}" href="{{ url_for('contratto_scheda', kid=k.id) }}">
+    <div>
+      <span class="prev-num">{{ k.codice }}</span><strong>{{ k.ragione_sociale or '—' }}</strong>
+      <p class="meta">{{ k.creato_il | ora_locale('%d/%m/%Y') }}{% if k.firmato_il %} · firmato il {{ k.firmato_il | ora_locale('%d/%m/%Y') }}{% endif %}{% if utente.is_admin and utenti.get(k.utente_id) %} · {{ utenti[k.utente_id].nome }}{% endif %}</p>
+    </div>
+    <span class="k-stato s-{{ k.stato }}">{{ stati[k.stato] }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card vuoto crm-vuoto"><span class="crm-vuoto-ico">{{ ico('modifica', size=40) }}</span><p>Nessun contratto{{ ' in questo stato' if stato }}.</p></div>
+{% endif %}
+{% endblock %}

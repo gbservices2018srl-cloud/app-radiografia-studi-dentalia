@@ -143,6 +143,7 @@ class Impostazioni(db.Model):
     aff_minimo = db.Column(db.Float)
     aff_voci = db.Column(db.Text)       # una voce per riga
     seq_attiva = db.Column(db.Boolean)  # sequenza email automatica accesa (spenta finché l'admin non la attiva)
+    contratto_testo = db.Column(db.Text)  # modello del contratto di affiliazione con i {segnaposto}; vuoto = bozza provvisoria
 
 
 class Contatto(db.Model):
@@ -205,6 +206,54 @@ class NewsletterInvio(db.Model):
     stato = db.Column(db.String(20), default="in_coda")     # in_coda, inviata, errore, saltata
     errore = db.Column(db.String(300))
     inviata_il = db.Column(db.DateTime)
+
+
+class Contratto(db.Model):
+    """Contratto di affiliazione: nasce quando il preventivo di affiliazione è accettato.
+    Solo a firma avvenuta lo studio è Affiliato e si sbloccano i preventivi dei servizi."""
+    id = db.Column(db.Integer, primary_key=True)
+    anno = db.Column(db.Integer, nullable=False)
+    numero = db.Column(db.Integer, nullable=False)
+    preventivo_id = db.Column(db.Integer, db.ForeignKey("preventivo.id"), nullable=False, index=True)
+    valutazione_id = db.Column(db.Integer)
+    utente_id = db.Column(db.Integer, db.ForeignKey("utente.id"), nullable=False)
+    stato = db.Column(db.String(20), default="da_compilare")   # da_compilare, da_firmare, firmato, annullato
+    # dati del cliente (copiati nel contratto)
+    ragione_sociale = db.Column(db.String(200))
+    piva = db.Column(db.String(40))
+    cf = db.Column(db.String(40))
+    indirizzo = db.Column(db.String(300))
+    cap = db.Column(db.String(10))
+    citta = db.Column(db.String(120))
+    provincia = db.Column(db.String(4))
+    pec = db.Column(db.String(200))
+    sdi = db.Column(db.String(10))
+    email = db.Column(db.String(200))
+    telefono = db.Column(db.String(40))
+    legale_rappresentante = db.Column(db.String(200))
+    lr_cf = db.Column(db.String(40))
+    lr_nascita = db.Column(db.String(200))       # luogo e data di nascita
+    note = db.Column(db.Text)
+    testo = db.Column(db.Text)                   # testo definitivo, congelato quando va in firma
+    hash_testo = db.Column(db.String(64))
+    token = db.Column(db.String(60), unique=True, index=True)   # link di firma per il cliente
+    # firma del cliente
+    firma = db.Column(db.Text)                   # immagine PNG (data URL)
+    firmatario = db.Column(db.String(200))
+    firmato_il = db.Column(db.DateTime)
+    firma_modo = db.Column(db.String(20))        # dispositivo / link
+    firma_ip = db.Column(db.String(60))
+    firma_agent = db.Column(db.String(300))
+    # firma per Consulting Sardegna (facoltativa)
+    firma_azienda = db.Column(db.Text)
+    firmatario_azienda = db.Column(db.String(200))
+    firmato_azienda_il = db.Column(db.DateTime)
+    creato_il = db.Column(db.DateTime, default=datetime.utcnow)
+    modificato_il = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def codice(self):
+        return f"C-{self.anno}/{self.numero:03d}"
 
 
 class SequenzaEmail(db.Model):
@@ -311,9 +360,44 @@ def affiliazione_accettata(vid):
     return a if a and a.stato == "accettato" else None
 
 
+def contratto_di(preventivo_id):
+    if not preventivo_id:
+        return None
+    return Contratto.query.filter(Contratto.preventivo_id == preventivo_id, Contratto.stato != "annullato") \
+        .order_by(Contratto.creato_il.desc()).first()
+
+
+def affiliazione_attiva(vid):
+    """Affiliazione accettata E contratto firmato: solo allora si aprono i preventivi dei servizi."""
+    a = affiliazione_accettata(vid)
+    c = contratto_di(a.id) if a else None
+    return a if c and c.stato == "firmato" else None
+
+
+def crea_contratto(p):
+    """Il contratto da firmare per un preventivo di affiliazione accettato (uno solo)."""
+    esistente = contratto_di(p.id)
+    if esistente:
+        return esistente
+    anno = datetime.now().year
+    numeri = [c.numero for c in Contratto.query.filter_by(anno=anno).all()]
+    c = Contratto(anno=anno, numero=(max(numeri) if numeri else 0) + 1, preventivo_id=p.id,
+                  valutazione_id=p.valutazione_id, utente_id=p.utente_id, stato="da_compilare",
+                  ragione_sociale=p.cliente, piva=p.piva_cliente, indirizzo=p.indirizzo, citta=p.citta,
+                  email=p.email_cliente, telefono=p.telefono_cliente, legale_rappresentante=p.referente)
+    db.session.add(c)
+    db.session.flush()
+    return c
+
+
 def dopo_cambio_stato(p, stato_prima):
-    """Affiliazione accettata: il contatto CRM diventa 'Affiliato'. Ogni passaggio finisce nella storia del contatto."""
-    if p.stato == stato_prima or not p.valutazione_id:
+    """Affiliazione accettata: si genera il contratto da firmare e il contatto passa a 'Da firmare'
+    (diventa 'Affiliato' solo con la firma, vedi contratti.py). Ogni passaggio finisce nella storia del contatto."""
+    if p.stato == stato_prima:
+        return
+    if p.tipo == "affiliazione" and p.stato == "accettato":
+        crea_contratto(p)
+    if not p.valutazione_id:
         return
     v = db.session.get(Valutazione, p.valutazione_id)
     c = db.session.get(Contatto, v.contatto_id) if v and v.contatto_id else None
@@ -322,8 +406,8 @@ def dopo_cambio_stato(p, stato_prima):
     tipo = "affiliazione" if p.tipo == "affiliazione" else "servizi"
     db.session.add(Attivita(contatto_id=c.id, utente_id=g.utente.id, tipo="preventivo", esito=p.stato,
                             testo=f"Preventivo {tipo} {p.codice}: {STATI.get(p.stato, p.stato)}"))
-    if p.tipo == "affiliazione" and p.stato == "accettato":
-        c.stato = "cliente"
+    if p.tipo == "affiliazione" and p.stato == "accettato" and c.stato != "cliente":
+        c.stato = "contratto"
         c.modificato_il = datetime.utcnow()
 
 
@@ -789,7 +873,8 @@ def risultato(vid):
         "risultato.html", v=v, report=report, priorita=priorita, media=media_di(punteggi),
         note_interne=note_interne,
         radar=radar_svg(report), commerciale=db.session.get(Utente, v.utente_id),
-        affiliazione=affiliazione_di(v.id),
+        affiliazione=affiliazione_di(v.id), affiliazione_attiva=affiliazione_attiva(v.id),
+        contratto=contratto_di(getattr(affiliazione_di(v.id), "id", None)),
     )
 
 
@@ -1042,8 +1127,8 @@ def preventivo_nuovo():
         p = Preventivo(anno=anno, numero=prossimo_numero(anno), utente_id=g.utente.id,
                        tipo="affiliazione" if request.form.get("tipo") == "affiliazione" else "servizi")
         vid = request.form.get("valutazione_id", type=int)
-        if p.tipo == "servizi" and not g.utente.is_admin and not affiliazione_accettata(vid):
-            flash("I preventivi dei servizi si sbloccano quando il preventivo di affiliazione è accettato.")
+        if p.tipo == "servizi" and not g.utente.is_admin and not affiliazione_attiva(vid):
+            flash("I preventivi dei servizi si sbloccano quando il contratto di affiliazione è firmato.")
             return redirect(url_for("preventivo_nuovo", valutazione=vid, tipo="affiliazione") if vid else url_for("preventivi"))
         try:
             salva_da_form(p, request.form)
@@ -1066,9 +1151,13 @@ def preventivo_nuovo():
     righe = []
     vid = request.args.get("valutazione", type=int)
     tipo = request.args.get("tipo")
-    if vid and tipo != "affiliazione" and not affiliazione_accettata(vid):
-        # prima dei servizi serve l'affiliazione: se esiste già la si apre, altrimenti la si prepara
+    if vid and tipo != "affiliazione" and not affiliazione_attiva(vid):
+        # prima dei servizi serve l'affiliazione firmata: contratto da firmare, preventivo da accettare o da creare
         esistente = affiliazione_di(vid)
+        contratto = contratto_di(esistente.id) if esistente and esistente.stato == "accettato" else None
+        if contratto:
+            flash("Prima va firmato il contratto di affiliazione: poi si sbloccano i preventivi dei servizi.")
+            return redirect(url_for("contratto_scheda", kid=contratto.id))
         if esistente:
             flash("Prima va accettato il preventivo di affiliazione: poi si sbloccano i preventivi dei servizi.")
             return redirect(url_for("preventivo_modifica", pid=esistente.id))
@@ -1118,10 +1207,12 @@ def preventivo_modifica(pid):
         return redirect(url_for("preventivo_modifica", pid=p.id))
     righe = json.loads(p.righe)
     aff_prezzo = calcola_totali(json.loads(p.righe), p.sconto_globale)["imponibile"] if p.tipo == "affiliazione" else None
+    contratto = contratto_di(p.id) if p.tipo == "affiliazione" else None
     return render_template("preventivo_form.html", p=p, righe=righe, stati=STATI,
                            listino=listino_json(), nuovo=False,
                            suggerimenti=suggerimenti_per(p) if p.tipo != "affiliazione" else None,
-                           valutazioni=valutazioni_collegabili(), aff=conf_affiliazione(), aff_prezzo=aff_prezzo)
+                           valutazioni=valutazioni_collegabili(), aff=conf_affiliazione(), aff_prezzo=aff_prezzo,
+                           contratto=contratto)
 
 
 @app.route("/preventivi/<int:pid>/stampa")
@@ -1314,6 +1405,8 @@ def impostazioni_azienda():
         for campo in ("ragione_sociale", "indirizzo", "piva", "sdi", "email", "telefono", "sito", "iban", "condizioni_default"):
             setattr(imp, campo, request.form.get(campo, "").strip())
         imp.validita_default = int(a_numero(request.form.get("validita_default"), 30))
+        if "contratto_testo" in request.form:
+            imp.contratto_testo = request.form.get("contratto_testo", "").strip() or None
         if "aff_prezzo" in request.form:
             prezzo = a_numero(request.form.get("aff_prezzo"), AFFILIAZIONE_BASE["prezzo"])
             minimo = a_numero(request.form.get("aff_minimo"), AFFILIAZIONE_BASE["minimo"])
@@ -1326,13 +1419,16 @@ def impostazioni_azienda():
         db.session.commit()
         flash("Dati aziendali salvati.")
         return redirect(url_for("impostazioni_azienda"))
-    return render_template("impostazioni.html", imp=imp, aff=conf_affiliazione())
+    from contratti import BOZZA_PROVVISORIA, SEGNAPOSTO
+    return render_template("impostazioni.html", imp=imp, aff=conf_affiliazione(), segnaposto=SEGNAPOSTO,
+                           bozza_contratto=BOZZA_PROVVISORIA)
 
 
 import crm  # noqa: E402,F401  (CRM: contatti, chiamate, pipeline — registra le sue pagine su `app`)
 import kpi  # noqa: E402,F401  (pannello KPI)
 import newsletter  # noqa: E402,F401  (newsletter: consenso, invio con la casella SMTP, disiscrizione)
 import sequenza  # noqa: E402,F401  (funnel: sequenza email automatica dopo il consenso)
+import contratti  # noqa: E402,F401  (contratto di affiliazione: dati, firma col dito o via link, stampa)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

@@ -28,6 +28,15 @@
     </div>
     <label style="display:block;margin-top:12px">Cosa comprende (una voce per riga)<textarea name="aff_voci" rows="12">{{ aff.voci | join('\n') }}</textarea></label>
   </section>
+  <section class="card aff-blocco" id="contratto">
+    <h2>Modello del contratto di affiliazione</h2>
+    <p class="meta">Incolla qui il testo dei legali. Al posto dei dati scrivi i segnaposto tra graffe (es. <code>{cliente_ragione_sociale}</code>): l'app li compila per ogni studio. Riga vuota = nuovo paragrafo; righe in MAIUSCOLO = titoli; righe con «- » = elenco. Se lo lasci vuoto si usa la bozza provvisoria.</p>
+    {% if not imp.contratto_testo %}<p class="avviso">Ora è attiva la <b>bozza provvisoria</b>: i contratti generati riportano la scritta «BOZZA PROVVISORIA».</p>{% endif %}
+    <textarea name="contratto_testo" rows="18" placeholder="{{ bozza_contratto }}">{{ imp.contratto_testo or '' }}</textarea>
+    <details class="gestisci"><summary>Segnaposto disponibili</summary>
+      <ul class="segnaposto">{% for k, v in segnaposto.items() %}<li><code>{{ '{' ~ k ~ '}' }}</code> {{ v }}</li>{% endfor %}</ul>
+    </details>
+  </section>
   <button class="btn grande" type="submit">Salva</button>
 </form>
 {% endblock %}

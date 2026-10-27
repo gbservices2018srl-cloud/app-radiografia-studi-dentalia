@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Contratto {{ k.codice }} · {{ k.ragione_sociale }}</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    body { font-family: Georgia, "Times New Roman", serif; color: #111; font-size: 11.5pt; line-height: 1.5; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+    .testa { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #cca165; padding-bottom: 10px; margin-bottom: 18px; }
+    .testa img { height: 46px; } .testa small { font-family: Arial, sans-serif; color: #555; text-align: right; }
+    h3 { font-size: 11.5pt; letter-spacing: .04em; margin: 18px 0 6px; color: #062039; font-family: Arial, sans-serif; }
+    p { margin: 0 0 10px; } ul { margin: 0 0 10px; padding-left: 22px; }
+    .bozza { border: 2px dashed #c62828; color: #c62828; padding: 8px 12px; font-family: Arial, sans-serif; font-weight: bold; margin-bottom: 14px; }
+    .firme { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 30px; page-break-inside: avoid; }
+    .firme div { border-top: 1px solid #999; padding-top: 6px; font-family: Arial, sans-serif; font-size: 9.5pt; color: #333; }
+    .firme img { display: block; max-width: 100%; height: 80px; object-fit: contain; object-position: left; }
+    .prova { margin-top: 26px; font-family: Arial, sans-serif; font-size: 8.5pt; color: #666; border-top: 1px solid #ddd; padding-top: 8px; word-break: break-all; }
+    .stampa { position: fixed; right: 16px; bottom: 16px; background: #062039; color: #fff; border: 0; border-radius: 8px; padding: 12px 18px; font: 600 14px Arial, sans-serif; cursor: pointer; }
+    @media print { .stampa { display: none; } body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="testa">
+    <img src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia">
+    <small>{{ imp.ragione_sociale }}<br>{{ imp.indirizzo or '' }}{% if imp.piva %}<br>P.IVA {{ imp.piva }}{% endif %}</small>
+  </div>
+  {% if 'BOZZA PROVVISORIA' in testo %}<div class="bozza">BOZZA PROVVISORIA · testo in attesa del modello definitivo dei legali</div>{% endif %}
+  {% for b in testo | paragrafi_contratto %}
+    {% if b.tipo == 'titolo' %}<h3>{{ b.testo }}</h3>
+    {% elif b.tipo == 'elenco' %}<ul>{% for r in b.righe %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% elif 'BOZZA PROVVISORIA' in b.righe[0] %}
+    {% else %}<p>{% for r in b.righe %}{{ r }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
+  {% endfor %}
+  <div class="firme">
+    <div>
+      {% if k.firma %}<img src="{{ k.firma }}" alt="Firma">{% else %}<div style="height:80px"></div>{% endif %}
+      Per lo Studio: <b>{{ k.firmatario or k.legale_rappresentante or '' }}</b>{% if k.firmato_il %}<br>{{ k.firmato_il | ora_locale('%d/%m/%Y %H:%M') }}{% endif %}
+    </div>
+    <div>
+      {% if k.firma_azienda %}<img src="{{ k.firma_azienda }}" alt="Firma">{% else %}<div style="height:80px"></div>{% endif %}
+      Per {{ imp.ragione_sociale }}: <b>{{ k.firmatario_azienda or '' }}</b>{% if k.firmato_azienda_il %}<br>{{ k.firmato_azienda_il | ora_locale('%d/%m/%Y %H:%M') }}{% endif %}
+    </div>
+  </div>
+  {% if k.firmato_il %}
+  <p class="prova">Firma elettronica raccolta {{ 'sul dispositivo del consulente' if k.firma_modo == 'dispositivo' else 'tramite link personale inviato allo Studio' }} il {{ k.firmato_il | ora_locale('%d/%m/%Y alle %H:%M:%S') }} (ora italiana) · IP {{ k.firma_ip or '—' }} · impronta SHA-256 del testo firmato: {{ k.hash_testo }}</p>
+  {% endif %}
+  <button class="stampa" onclick="window.print()">Stampa / salva PDF</button>
+</body>
+</html>

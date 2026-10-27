@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 from flask import g, render_template, request
 
-from app import (Attivita, Contatto, Preventivo, STATI, Utente, app, calcola_totali, db, login_richiesto)
+from app import (Attivita, Contatto, Contratto, Preventivo, STATI, Utente, app, calcola_totali, db, login_richiesto)
 
 ROMA = ZoneInfo("Europe/Rome")
 
@@ -99,6 +99,10 @@ def kpi():
     aff_acc = [(p, v) for p, v in accettati if p.tipo == "affiliazione"]
     serv_acc = [(p, v) for p, v in accettati if p.tipo != "affiliazione"]
     bozze = [(p, v) for p, v in prev if p.stato == "bozza"]
+    qk = Contratto.query.filter(Contratto.stato == "firmato", Contratto.firmato_il >= inizio, Contratto.firmato_il < fine)
+    if filtro:
+        qk = qk.filter(Contratto.utente_id == filtro)
+    firmati = qk.count()
 
     # contatti da chiamare adesso
     adesso = datetime.utcnow()
@@ -138,5 +142,5 @@ def kpi():
         euro_prev=euro_prev, euro_acc=euro_acc, n_prev=len(consegnati), n_acc=len(accettati),
         n_aff=len(aff_acc), euro_aff=sum(v for _, v in aff_acc), n_serv=len(serv_acc),
         euro_serv=sum(v for _, v in serv_acc), n_bozze=len(bozze), euro_bozze=sum(v for _, v in bozze),
-        n_rif=len([1 for p, _ in consegnati if p.stato == "rifiutato"]), righe_comm=righe_comm,
+        n_rif=len([1 for p, _ in consegnati if p.stato == "rifiutato"]), righe_comm=righe_comm, firmati=firmati,
         nome_filtro=next((u.nome for u in utenti if u.id == filtro), None))

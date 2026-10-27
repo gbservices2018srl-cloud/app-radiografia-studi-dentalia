@@ -37,6 +37,22 @@ def affiliazione(client, vid, prezzo="5000", stato="accettato", cliente="Studio"
                                                  "aff_prezzo": prezzo})
 
 
+FIRMA_FINTA = "data:image/png;base64," + "iVBORw0KGgo" * 400
+DATI_CONTRATTO = {"ragione_sociale": "Studio Test Srl", "piva": "01234567890", "indirizzo": "Via Roma 1", "cap": "09100",
+                  "citta": "Cagliari", "provincia": "ca", "legale_rappresentante": "Dott. Mario Test",
+                  "email": "studio@test.it"}
+
+
+def firma_contratto(client, vid):
+    """Completa e firma (sul dispositivo) il contratto dell'affiliazione accettata di una radiografia."""
+    with m.app.app_context():
+        kid = m.contratto_di(m.affiliazione_di(vid).id).id
+    client.post(f"/contratti/{kid}", data={**DATI_CONTRATTO, "azione": "pronto"})
+    client.post(f"/contratti/{kid}/firma", data={"letto": "1", "clausole": "1", "firmatario": "Dott. Mario Test",
+                                                "firma": FIRMA_FINTA})
+    return kid
+
+
 class TestApp(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -83,6 +99,7 @@ class TestApp(unittest.TestCase):
         r = self.marco.post("/nuova", data={"studio": "Studio Suggerimenti", **risposte(1)})
         vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
         affiliazione(self.marco, vid, cliente="Studio Suggerimenti")
+        firma_contratto(self.marco, vid)
         form = self.marco.get(f"/preventivi/nuovo?valutazione={vid}").get_data(as_text=True)
         self.assertIn("Voci suggerite dalla radiografia", form)
         self.assertIn("Studio Suggerimenti", form)
@@ -466,10 +483,49 @@ class TestApp(unittest.TestCase):
         self.marco.post("/preventivi/nuovo", data=servizi)
         with m.app.app_context():
             self.assertEqual(m.Preventivo.query.filter_by(valutazione_id=vid, tipo="servizi").count(), 0)
-        # accettata: il contatto diventa Affiliato e si sbloccano i servizi
+        # accettata: nasce il contratto da firmare; i servizi restano bloccati fino alla firma
         self.marco.post(f"/preventivi/{pid}/stato", data={"stato": "accettato"})
         with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Contatto, cid).stato, "contratto")
+            k = m.contratto_di(pid)
+            self.assertEqual((k.stato, k.ragione_sociale), ("da_compilare", "Studio Affiliando"))
+            kid = k.id
+        r = self.marco.get(f"/preventivi/nuovo?valutazione={vid}")
+        self.assertIn(f"/contratti/{kid}", r.location)
+        self.assertIn("Fai firmare il contratto", self.marco.get(f"/valutazione/{vid}").get_data(as_text=True))
+        scheda = self.marco.get(f"/contratti/{kid}").get_data(as_text=True)
+        self.assertIn("BOZZA PROVVISORIA", scheda)
+        self.assertEqual(self.laura.get(f"/contratti/{kid}").status_code, 403)
+        # senza i dati obbligatori non va in firma
+        self.marco.post(f"/contratti/{kid}", data={"ragione_sociale": "Studio Affiliando", "azione": "pronto"})
+        with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Contratto, kid).stato, "da_compilare")
+        self.marco.post(f"/contratti/{kid}", data={**DATI_CONTRATTO, "azione": "pronto"})
+        with m.app.app_context():
+            k = m.db.session.get(m.Contratto, kid)
+            self.assertEqual((k.stato, k.provincia), ("da_firmare", "CA"))
+            self.assertIn("Studio Test Srl", k.testo)
+            self.assertIn("4.500,00", k.testo)
+            self.assertIn("Licenza di uso per marchio Dentalia", k.testo)
+            token = k.token
+        # firma dal link, senza login
+        anonimo = m.app.test_client()
+        pagina = anonimo.get(f"/firma/{token}").get_data(as_text=True)
+        self.assertIn("Firma il contratto", pagina)
+        anonimo.post(f"/firma/{token}", data={"firmatario": "Dott. Mario Test", "firma": FIRMA_FINTA})   # senza spunte
+        with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Contratto, kid).stato, "da_firmare")
+        anonimo.post(f"/firma/{token}", data={"letto": "1", "clausole": "1", "firmatario": "Dott. Mario Test",
+                                             "firma": FIRMA_FINTA})
+        with m.app.app_context():
+            k = m.db.session.get(m.Contratto, kid)
+            self.assertEqual((k.stato, k.firma_modo, k.firmatario), ("firmato", "link", "Dott. Mario Test"))
+            self.assertEqual(len(k.hash_testo), 64)
             self.assertEqual(m.db.session.get(m.Contatto, cid).stato, "cliente")
+        self.assertIn("Contratto firmato", anonimo.get(f"/firma/{token}").get_data(as_text=True))
+        self.assertEqual(anonimo.get(f"/firma/{token}/copia").status_code, 200)
+        self.assertEqual(anonimo.get("/firma/inesistente").status_code, 404)
+        self.assertIn("impronta SHA-256", self.marco.get(f"/contratti/{kid}/stampa").get_data(as_text=True))
         self.assertIn("Crea preventivo dei servizi", self.marco.get(f"/valutazione/{vid}").get_data(as_text=True))
         self.assertEqual(self.marco.get(f"/preventivi/nuovo?valutazione={vid}").status_code, 200)
         self.marco.post("/preventivi/nuovo", data=servizi)
@@ -492,6 +548,7 @@ class TestApp(unittest.TestCase):
             c = m.conf_affiliazione()
             self.assertEqual((len(c["voci"]), c["prezzo"], c["minimo"]), (11, 5000.0, 4000.0))
         self.assertIn("Preventivo di affiliazione", self.admin.get("/impostazioni").get_data(as_text=True))
+        self.assertIn("Modello del contratto", self.admin.get("/impostazioni").get_data(as_text=True))
 
     def test_27_pannello_kpi_cliccabile(self):
         cid = self._nuovo_contatto(self.laura, studio="Studio KPI", telefono="070 555 0404")
@@ -602,6 +659,29 @@ class TestApp(unittest.TestCase):
         self.assertIn("Benvenuto nuovo", self.admin.get("/newsletter/sequenza").get_data(as_text=True))
         self.admin.post("/newsletter/sequenza", data={"attiva": "0"})
         self.assertEqual(self.marco.get("/newsletter/sequenza").status_code, 403)
+
+    def test_30_contratto_firma_sul_dispositivo_e_modello(self):
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.laura.post("/nuova", data={"studio": "Studio Firma Qui", **{d["id"]: "3" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        affiliazione(self.laura, vid, cliente="Studio Firma Qui")
+        # modello dei legali con segnaposto
+        self.admin.post("/impostazioni", data={"ragione_sociale": "CONSULTING SARDEGNA SRL", "validita_default": "30",
+                                              "contratto_testo": "CONTRATTO {numero_contratto}\n\nTra {azienda_ragione_sociale} e {cliente_ragione_sociale} per {totale}."})
+        kid = firma_contratto(self.laura, vid)
+        with m.app.app_context():
+            k = m.db.session.get(m.Contratto, kid)
+            self.assertEqual((k.stato, k.firma_modo), ("firmato", "dispositivo"))
+            self.assertIn("Tra CONSULTING SARDEGNA SRL e Studio Test Srl per € 6.100,00.", k.testo)
+            self.assertNotIn("BOZZA", k.testo)
+        self.assertIn("Studio Test Srl", self.laura.get("/contratti?stato=firmato").get_data(as_text=True))
+        self.laura.post(f"/contratti/{kid}/firma-azienda", data={"firmatario_azienda": "Laura Verdi", "firma_azienda": FIRMA_FINTA})
+        with m.app.app_context():
+            self.assertEqual(m.db.session.get(m.Contratto, kid).firmatario_azienda, "Laura Verdi")
+        self.assertIn("contratti firmati", self.admin.get("/kpi?periodo=tutto").get_data(as_text=True))
+        self.admin.post("/impostazioni", data={"ragione_sociale": "CONSULTING SARDEGNA SRL", "validita_default": "30",
+                                              "contratto_testo": ""})
 
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():

@@ -50,10 +50,10 @@
     <span class="kpi-ico">{{ ico('utente', size=22) }}</span>
     <small>Presentati</small><b>{{ imbuto.presentati }}</b><em><strong>{{ perc(imbuto.presentati, imbuto.appuntamenti) }}%</strong> degli appuntamenti</em>
   </a>
-  <span class="kpi-freccia" aria-hidden="true">{{ ico('sposta', size=20) }}<small>{{ perc(n_aff, imbuto.presentati) }}%</small></span>
-  <a class="kpi-passo p4" href="{{ url_for('preventivi', tipo='affiliazione', stato='accettato', **f) }}">
+  <span class="kpi-freccia" aria-hidden="true">{{ ico('sposta', size=20) }}<small>{{ perc(firmati, imbuto.presentati) }}%</small></span>
+  <a class="kpi-passo p4" href="{{ url_for('contratti', stato='firmato') }}">
     <span class="kpi-ico">{{ ico('stella', size=22) }}</span>
-    <small>Affiliati</small><b>{{ n_aff }}</b><em><strong>{{ perc(n_aff, imbuto.presentati) }}%</strong> dei presentati</em>
+    <small>Affiliati</small><b>{{ firmati }}</b><em><strong>{{ perc(firmati, imbuto.presentati) }}%</strong> dei presentati · contratti firmati</em>
   </a>
 </div>
 <div class="kpi-piccoli">

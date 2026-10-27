@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% from "_firma.html" import riquadro_firma, script_firma %}
+{% block title %}Firma del contratto{% endblock %}
+{% block content %}
+{% if pubblica %}<div class="firma-logo"><img src="{{ url_for('static', filename='brand/logo-completo.png') }}" alt="Dentalia"></div>{% endif %}
+
+{% if not k %}
+<div class="card vuoto"><h1>{{ ico('x', size=24) }} Link non valido</h1><p>Questo link di firma non è valido o il contratto è stato annullato. Contatti il suo consulente Dentalia o scriva a <a href="mailto:info@dentaliagroup.it">info@dentaliagroup.it</a>.</p></div>
+{% elif k.stato == 'firmato' %}
+<section class="card firma-ok">
+  <span class="firma-ok-ico">{{ ico('ok', size=34) }}</span>
+  <h1>Contratto firmato</h1>
+  <p>Il contratto <b>{{ k.codice }}</b> è stato firmato da <b>{{ k.firmatario }}</b> il {{ k.firmato_il | ora_locale('%d/%m/%Y alle %H:%M') }}.{% if pubblica %} Benvenuti nel network Dentalia!{% endif %}</p>
+  <a class="btn oro" href="{{ url_for('firma_copia', token=k.token) if pubblica else url_for('contratto_stampa', kid=k.id) }}" target="_blank">{{ ico('scarica') }} Scarica / stampa la copia (PDF)</a>
+  {% if not pubblica %}<a class="btn sec-btn" href="{{ url_for('contratto_scheda', kid=k.id) }}">Torna al contratto</a>{% endif %}
+</section>
+{% elif k.stato != 'da_firmare' %}
+<div class="card vuoto"><p>Il contratto non è ancora pronto per la firma.</p></div>
+{% else %}
+{% if not pubblica %}<p class="meta"><a href="{{ url_for('contratto_scheda', kid=k.id) }}">← Contratto {{ k.codice }}</a></p>{% endif %}
+<h1>{{ ico('modifica', size=26) }} Contratto di affiliazione {{ k.codice }}</h1>
+<p class="meta">{{ k.ragione_sociale }} · Legale rappresentante {{ k.legale_rappresentante }}</p>
+
+<section class="card contratto-testo scorre">
+  {% for b in k.testo | paragrafi_contratto %}
+    {% if b.tipo == 'titolo' %}<h3>{{ b.testo }}</h3>
+    {% elif b.tipo == 'elenco' %}<ul>{% for r in b.righe %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% else %}<p>{% for r in b.righe %}{{ r }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
+  {% endfor %}
+</section>
+
+<form method="post" action="{{ azione }}" class="card con-firma firma-form">
+  <label class="crm-spunta"><input type="checkbox" name="letto" value="1" required> <span>Ho letto il contratto e lo accetto.</span></label>
+  <label class="crm-spunta"><input type="checkbox" name="clausole" value="1" required> <span>Approvo specificamente, ai sensi degli artt. 1341 e 1342 c.c., le clausole che il contratto indica come oggetto di approvazione specifica.</span></label>
+  <label>{{ ico('utente', size=15) }} Nome e cognome di chi firma *<input name="firmatario" value="{{ k.legale_rappresentante or '' }}" required autocomplete="name"></label>
+  {{ riquadro_firma('firma', 'Firma per ' ~ (k.ragione_sociale or 'lo Studio'), True) }}
+  {% if not pubblica %}
+  <details class="gestisci"><summary>{{ ico('modifica', size=14) }} Aggiungi anche la firma per {{ imp.ragione_sociale }} (facoltativa)</summary>
+    <label>Nome di chi firma per {{ imp.ragione_sociale }}<input name="firmatario_azienda" value="{{ utente.nome }}"></label>
+    {{ riquadro_firma('firma_azienda', 'Firma per ' ~ imp.ragione_sociale) }}
+  </details>
+  {% endif %}
+  <p class="meta">Firmando, data, ora e dati tecnici del dispositivo vengono registrati come prova della firma. {% if pubblica %}Riceverà la copia del contratto firmato.{% endif %}</p>
+  <button class="btn oro grande" type="submit">{{ ico('ok') }} Firma il contratto</button>
+</form>
+{{ script_firma() }}
+{% endif %}
+{% endblock %}

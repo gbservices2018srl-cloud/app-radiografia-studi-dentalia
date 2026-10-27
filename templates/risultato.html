@@ -92,8 +92,11 @@
   {% elif affiliazione.stato != 'accettato' %}
   <a class="btn oro" href="{{ url_for('preventivo_modifica', pid=affiliazione.id) }}">Apri l'affiliazione {{ affiliazione.codice }} ({{ {'bozza': 'bozza', 'inviato': 'consegnata', 'rifiutato': 'rifiutata'}.get(affiliazione.stato, affiliazione.stato) }})</a>
   <span class="meta blocco-upsell">I preventivi dei servizi si sbloccano quando l'affiliazione è accettata.</span>
+  {% elif not affiliazione_attiva %}
+  <a class="btn oro" href="{{ url_for('contratto_scheda', kid=contratto.id) if contratto else url_for('preventivo_modifica', pid=affiliazione.id) }}">Fai firmare il contratto di affiliazione</a>
+  <span class="meta blocco-upsell">Affiliazione accettata: i preventivi dei servizi si sbloccano con il contratto firmato.</span>
   {% else %}
-  <a class="btn sec-btn" href="{{ url_for('preventivo_modifica', pid=affiliazione.id) }}">Affiliazione {{ affiliazione.codice }} · accettata</a>
+  <a class="btn sec-btn" href="{{ url_for('contratto_scheda', kid=contratto.id) }}">Contratto {{ contratto.codice }} · firmato</a>
   <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=v.id) }}">Crea preventivo dei servizi</a>
   {% endif %}
   <button class="btn sec-btn" onclick="window.print()">Stampa / salva PDF</button>
