@@ -200,7 +200,7 @@ def newsletter():
 @app.route("/newsletter/<int:nid>", methods=["GET", "POST"])
 @admin_richiesto
 def newsletter_modifica(nid=None):
-    n = db.session.get(Newsletter, nid) if nid else Newsletter(oggetto="", corpo="")
+    n = db.session.get(Newsletter, nid) if nid else Newsletter(oggetto="", corpo="", stato="bozza")
     if nid and not n:
         abort(404)
     if request.method == "POST":
@@ -272,7 +272,7 @@ def newsletter_invia(nid):
 @admin_richiesto
 def newsletter_duplica(nid):
     o = db.session.get(Newsletter, nid) or abort(404)
-    n = Newsletter(oggetto=o.oggetto, corpo=o.corpo, creata_da=g.utente.id)
+    n = Newsletter(oggetto=o.oggetto, corpo=o.corpo, creata_da=g.utente.id, stato="bozza")
     db.session.add(n)
     db.session.commit()
     return redirect(url_for("newsletter_modifica", nid=n.id))
