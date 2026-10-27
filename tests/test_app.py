@@ -564,20 +564,24 @@ class TestApp(unittest.TestCase):
         with m.app.app_context():
             self.assertEqual(seq.esegui_giro(), 0)                   # spenta: non parte nulla
         self.admin.post("/newsletter/sequenza", data={"attiva": "1"})
+        per_funnel = lambda: [e for e in m.app.config["EMAIL_INVIATE"] if e["To"] == "funnel@studio.it"]
         with m.app.app_context():
-            self.assertEqual(seq.esegui_giro(), 1)                   # email del giorno 0
-            self.assertEqual(seq.esegui_giro(), 0)                   # mai due nello stesso giorno, la 2a è al giorno 3
+            seq.esegui_giro()
+            self.assertEqual(len(per_funnel()), 1)                   # email del giorno 0
+            seq.esegui_giro()
+            self.assertEqual(len(per_funnel()), 1)                   # mai due nello stesso giorno, la 2a è al giorno 3
             c = m.db.session.get(m.Contatto, cid)
             # tre giorni dopo il consenso parte la seconda
             c.consenso_il -= __import__("datetime").timedelta(days=3)
             for inv in m.SequenzaInvio.query.filter_by(contatto_id=cid).all():
                 inv.inviata_il -= __import__("datetime").timedelta(days=3)
             m.db.session.commit()
-            self.assertEqual(seq.esegui_giro(), 1)
+            seq.esegui_giro()
+            self.assertEqual(len(per_funnel()), 2)
         oggetti = [e["Subject"] for e in m.app.config["EMAIL_INVIATE"] if e["To"] == "funnel@studio.it"]
         self.assertEqual(len(oggetti), 2)
         self.assertIn("Promessa", oggetti[0])
-        html = m.app.config["EMAIL_INVIATE"][-1].get_body(("html",)).get_content()
+        html = per_funnel()[-1].get_body(("html",)).get_content()
         self.assertIn("Gentile Dott. Funnel", html)
         self.assertIn("aree/sviluppo-commerciale", html)
         # se prende appuntamento la sequenza si ferma
@@ -588,7 +592,8 @@ class TestApp(unittest.TestCase):
             for inv in m.SequenzaInvio.query.filter_by(contatto_id=cid).all():
                 inv.inviata_il -= __import__("datetime").timedelta(days=30)
             m.db.session.commit()
-            self.assertEqual(seq.esegui_giro(), 0)
+            seq.esegui_giro()
+            self.assertEqual(len(per_funnel()), 2)
         # modifica di un'email e pagina
         with m.app.app_context():
             eid = m.SequenzaEmail.query.order_by(m.SequenzaEmail.giorno).first().id
