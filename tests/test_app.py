@@ -683,6 +683,19 @@ class TestApp(unittest.TestCase):
         self.admin.post("/impostazioni", data={"ragione_sociale": "CONSULTING SARDEGNA SRL", "validita_default": "30",
                                               "contratto_testo": ""})
 
+    def test_31_preventivi_raggruppati_per_cliente(self):
+        base = {"data": "2026-10-28", "r_desc": ["Voce"], "r_det": [""], "r_qta": ["1"], "r_sconto": ["0"],
+                "r_iva": ["22"], "r_unita": [""]}
+        for stato, prezzo in (("accettato", "100"), ("sospeso", "200"), ("inviato", "300")):
+            self.admin.post("/preventivi/nuovo", data={**base, "cliente": "Clinica Raggruppata", "stato": stato,
+                                                     "oggetto": f"Servizio {stato}", "r_prezzo": [prezzo]})
+        pagina = self.admin.get("/preventivi?q=raggruppata").get_data(as_text=True)
+        self.assertEqual(pagina.count('class="card pv-cliente"'), 1)
+        self.assertEqual(pagina.count('class="pv-btn s-'), 3)
+        for colore in ("s-verde", "s-arancio", "s-rosso"):
+            self.assertIn(f"pv-btn {colore}", pagina)
+        self.assertIn("Sospeso", pagina)
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

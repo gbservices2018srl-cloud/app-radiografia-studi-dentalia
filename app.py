@@ -928,6 +928,7 @@ def radar_svg(report, cx=300, cy=250, r=165, obiettivo=75):
 STATI = {
     "bozza": "Bozza",
     "inviato": "Consegnato",   # chiave interna "inviato" mantenuta per i dati già salvati
+    "sospeso": "Sospeso",
     "accettato": "Accettato",
     "rifiutato": "Rifiutato",
 }
@@ -1114,8 +1115,30 @@ def preventivi():
         t = calcola_totali(json.loads(p.righe), p.sconto_globale)
         righe.append({"p": p, "tot": t, "comm": utenti.get(p.utente_id)})
     riepilogo = {s: sum(r["tot"]["imponibile"] for r in righe if r["p"].stato == s) for s in STATI}
-    return render_template("preventivi.html", righe=righe, stati=STATI, riepilogo=riepilogo,
-                           utenti=utenti.values(), args=request.args)
+    conteggi = {s: sum(1 for r in righe if r["p"].stato == s) for s in STATI}
+    # una scheda per cliente con tutti i suoi preventivi (stesso contatto CRM o stesso nome)
+    contatto_di_val = dict(db.session.query(Valutazione.id, Valutazione.contatto_id).filter(
+        Valutazione.contatto_id.isnot(None)).all())
+    gruppi = {}
+    for r in righe:
+        p = r["p"]
+        cid = contatto_di_val.get(p.valutazione_id)
+        chiave = f"c{cid}" if cid else "n" + re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", (p.cliente or "").lower())
+                                                    .encode("ascii", "ignore").decode())
+        gr = gruppi.setdefault(chiave, {"nome": p.cliente, "citta": p.citta, "contatto_id": cid, "voci": [],
+                                         "totale": 0.0, "accettato": 0.0, "comm": set()})
+        gr["voci"].append(r)
+        gr["totale"] += r["tot"]["imponibile"]
+        if p.stato == "accettato":
+            gr["accettato"] += r["tot"]["imponibile"]
+        if r["comm"]:
+            gr["comm"].add(r["comm"].nome)
+        gr["citta"] = gr["citta"] or p.citta
+    for gr in gruppi.values():   # dentro la scheda: affiliazione per prima, poi dal più vecchio al più recente
+        gr["voci"].sort(key=lambda r: (r["p"].tipo != "affiliazione", r["p"].creato_il))
+    clienti = sorted(gruppi.values(), key=lambda gr: max(r["p"].creato_il for r in gr["voci"]), reverse=True)
+    return render_template("preventivi.html", righe=righe, clienti=clienti, stati=STATI, riepilogo=riepilogo,
+                           conteggi=conteggi, utenti=utenti.values(), args=request.args)
 
 
 @app.route("/preventivi/nuovo", methods=["GET", "POST"])

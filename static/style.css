@@ -167,13 +167,13 @@ select { width: 100%; margin-top: 4px; padding: 9px 10px; border: 1px solid var(
 /* stati */
 .stato { font-weight: 700; }
 .stato.bozza, .stato-bordo.bozza { --s: #64748b; } .stato.inviato, .stato-bordo.inviato { --s: #2563eb; }
-.stato.accettato, .stato-bordo.accettato { --s: var(--buono); } .stato.rifiutato, .stato-bordo.rifiutato { --s: var(--critico); }
+.stato.accettato, .stato-bordo.accettato { --s: var(--buono); } .stato.sospeso, .stato-bordo.sospeso { --s: #e07b00; } .stato.rifiutato, .stato-bordo.rifiutato { --s: var(--critico); }
 .stato { color: var(--s); }
 .stato-sel { width: auto; margin: 0; padding: 7px 10px; font-weight: 600; border-radius: 8px; }
-.stato-sel.bozza { color: #64748b; } .stato-sel.inviato { color: #2563eb; } .stato-sel.accettato { color: var(--buono); } .stato-sel.rifiutato { color: var(--critico); }
+.stato-sel.bozza { color: #64748b; } .stato-sel.inviato { color: #2563eb; } .stato-sel.accettato { color: var(--buono); } .stato-sel.sospeso { color: #e07b00; } .stato-sel.rifiutato { color: var(--critico); }
 
 /* archivio */
-.kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.kpi { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 14px; }
 .kpi-box { background: var(--card); border: 1px solid var(--bordo); border-top: 4px solid var(--s); border-radius: 12px; padding: 12px; text-decoration: none; color: var(--testo); }
 .kpi-box.sel { box-shadow: 0 0 0 2px var(--s); }
 .kpi-box small { display: block; color: var(--tenue); font-size: .8rem; } .kpi-box b { font-size: 1.05rem; }
@@ -558,3 +558,21 @@ a.k-modo:hover { border-color: var(--oro); }
 .firma-logo { text-align: center; margin: 10px 0 18px; } .firma-logo img { width: 190px; max-width: 60%; }
 .segnaposto { columns: 2; font-size: .85rem; padding-left: 18px; } .segnaposto code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
 @media (max-width: 760px) { .k-due { grid-template-columns: 1fr; } .k-fasi { grid-template-columns: repeat(3, 1fr); } .segnaposto { columns: 1; } .k-passi li { font-size: .78rem; padding: 8px; } }
+
+/* ============ Preventivi raggruppati per cliente ============ */
+.pv-legenda { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pv-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--c); margin-left: 6px; }
+.s-rosso { --c: #c62828; --cf: #fdecec; } .s-arancio { --c: #e07b00; --cf: #fff3e2; } .s-verde { --c: #2e7d32; --cf: #e8f5e9; } .s-grigio { --c: #9ca3af; --cf: #f3f4f6; }
+.pv-cliente { padding: 16px; }
+.pv-testa { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.pv-avatar { width: 44px; height: 44px; border-radius: 12px; background: var(--primario); color: var(--oro); display: flex; align-items: center; justify-content: center; flex: none; }
+.pv-nome { flex: 1; min-width: 0; } .pv-nome strong { font-size: 1.1rem; } .pv-nome a { color: var(--primario); text-decoration: none; } .pv-nome p { margin: 2px 0 0; }
+.pv-totali { text-align: right; flex: none; } .pv-totali small { display: block; color: var(--tenue); font-size: .72rem; } .pv-totali b { font-size: 1.1rem; } .pv-totali b.verde { color: var(--buono); }
+.pv-bottoni { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.pv-btn { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--c); background: var(--cf); color: var(--testo); text-decoration: none; transition: transform .1s; }
+.pv-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.pv-btn-nome { font-weight: 600; font-size: .88rem; display: flex; align-items: center; gap: 4px; color: var(--primario); }
+.pv-btn-dati { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.pv-btn-dati small { color: var(--c); font-weight: 600; font-size: .72rem; } .pv-btn-dati b { color: var(--c); }
+.pv-btn.s-grigio { opacity: .75; } .pv-btn.s-grigio .pv-btn-nome { text-decoration: line-through; }
+@media (max-width: 700px) { .kpi { grid-template-columns: repeat(2, 1fr); } .pv-testa { flex-wrap: wrap; } .pv-totali { text-align: left; width: 100%; } }

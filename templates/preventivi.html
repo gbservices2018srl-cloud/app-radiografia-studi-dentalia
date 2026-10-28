@@ -1,5 +1,71 @@
 {% extends "base.html" %}
+{% from "_icone.html" import ico %}
 {% block title %}Archivio preventivi{% endblock %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>Archivio preventivi</h1>
+  <a class="btn" href="{{ url_for('preventivo_nuovo') }}">+ Nuovo preventivo</a>
+</div>
+
+{% if args.get('da') or args.get('tipo') or args.get('stato') == 'consegnati' %}
+<div class="avviso kpi-filtro">Filtro: {% if args.get('tipo') %}<b>{{ 'affiliazioni' if args.get('tipo') == 'affiliazione' else 'servizi' }}</b> · {% endif %}{% if args.get('stato') == 'consegnati' %}<b>consegnati, accettati o rifiutati</b> · {% endif %}{% if args.get('da') %}dal {{ args.get('da') }} al {{ args.get('a') }}{% endif %}
+  <a href="{{ url_for('kpi', da=args.get('da') or None, a=args.get('a') or None, commerciale=args.get('commerciale') or None) }}">← Torna ai KPI</a> <a href="{{ url_for('preventivi') }}">Togli filtro</a></div>
+{% endif %}
+<div class="kpi">
+  {% for k, etichetta in stati.items() %}
+  <a class="kpi-box stato-bordo {{ k }} {{ 'sel' if args.get('stato') == k }}" href="{{ url_for('preventivi', stato=(None if args.get('stato') == k else k), q=args.get('q') or None, commerciale=args.get('commerciale') or None) }}">
+    <small>{{ etichetta }} · {{ conteggi[k] }}</small><b>{{ riepilogo[k] | euro }}</b>
+  </a>
+  {% endfor %}
+</div>
+
+<form method="get" class="filtri card">
+  <input type="search" name="q" value="{{ args.get('q', '') }}" placeholder="Cerca cliente, numero, oggetto…" aria-label="Cerca">
+  <select name="stato" aria-label="Stato">
+    <option value="">Tutti gli stati</option>
+    {% for k, v in stati.items() %}<option value="{{ k }}" {{ 'selected' if args.get('stato') == k }}>{{ v }}</option>{% endfor %}
+  </select>
+  {% if utente.is_admin %}
+  <select name="commerciale" aria-label="Commerciale">
+    <option value="">Tutti i commerciali</option>
+    {% for u in utenti %}<option value="{{ u.id }}" {{ 'selected' if args.get('commerciale') == u.id|string }}>{{ u.nome }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button class="btn" type="submit">Filtra</button>
+</form>
+
+{% if clienti %}
+<p class="meta pv-legenda"><span class="pv-dot s-rosso"></span> da accettare <span class="pv-dot s-arancio"></span> sospeso <span class="pv-dot s-verde"></span> accettato <span class="pv-dot s-grigio"></span> rifiutato · {{ clienti|length }} client{{ 'e' if clienti|length == 1 else 'i' }}, {{ righe|length }} preventiv{{ 'o' if righe|length == 1 else 'i' }}</p>
+<div class="lista">
+  {% for gr in clienti %}
+  <section class="card pv-cliente">
+    <div class="pv-testa">
+      <span class="pv-avatar">{{ ico('studio', size=22) }}</span>
+      <div class="pv-nome">
+        <strong>{% if gr.contatto_id %}<a href="{{ url_for('contatto_scheda', cid=gr.contatto_id) }}">{{ gr.nome }}</a>{% else %}{{ gr.nome }}{% endif %}</strong>
+        <p class="meta">{% if gr.citta %}{{ gr.citta }} · {% endif %}{{ gr.voci|length }} preventiv{{ 'o' if gr.voci|length == 1 else 'i' }}{% if utente.is_admin and gr.comm %} · {{ gr.comm|join(', ') }}{% endif %}</p>
+      </div>
+      <div class="pv-totali"><small>Accettato</small><b class="{{ 'verde' if gr.accettato }}">{{ gr.accettato | euro }}</b><small>su {{ gr.totale | euro }}</small></div>
+    </div>
+    <div class="pv-bottoni">
+      {% for r in gr.voci %}
+      {% set colore = 'verde' if r.p.stato == 'accettato' else ('arancio' if r.p.stato == 'sospeso' else ('grigio' if r.p.stato == 'rifiutato' else 'rosso')) %}
+      <a class="pv-btn s-{{ colore }}" href="{{ url_for('preventivo_modifica', pid=r.p.id) }}" title="{{ stati[r.p.stato] }} · {{ r.p.oggetto or '' }}">
+        <span class="pv-btn-nome">{% if r.p.tipo == 'affiliazione' %}{{ ico('stella', size=13) }} Affiliazione{% else %}{{ (r.p.oggetto or 'Preventivo')|truncate(34, True, '…') }}{% endif %}</span>
+        <span class="pv-btn-dati"><small>{{ r.p.codice }} · {{ stati[r.p.stato] }}</small><b>{{ r.tot.imponibile | euro }}</b></span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card vuoto">
+  <p>Nessun preventivo trovato.</p>
+  <a class="btn" href="{{ url_for('preventivo_nuovo') }}">Crea il primo preventivo</a>
+</div>
+{% endif %}
+{% endblock %}
 {% block content %}
 <div class="titolo-riga">
   <h1>Archivio preventivi</h1>
