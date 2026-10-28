@@ -35,8 +35,20 @@
   {% endif %}
 </section>
 
-{% if c.stato in ('nuovo', 'richiamare', 'non_interessato') %}
-<section class="card" id="chiamata">
+<nav class="per-passi" aria-label="Percorso del cliente">
+  {% for p in per.passi %}
+  {% set tag = 'a' if p.link else 'div' %}
+  <{{ tag }} class="per-passo st-{{ p.stato }}" {% if p.link %}href="{{ p.link }}"{% endif %}>
+    <span class="per-num">{% if p.stato == 'fatto' %}{{ ico('ok', size=18) }}{% else %}{{ ico(p.icona, size=18) }}{% endif %}</span>
+    <span class="per-testo"><b>{{ loop.index }}. {{ p.nome }}</b><small>{{ p.dettaglio or ('adesso' if p.stato == 'ora' else '') }}</small></span>
+  </{{ tag }}>
+  {% endfor %}
+</nav>
+
+<h2 class="per-adesso-titolo">{{ ico('stella') }} {% if per.attuale == 'completo' %}Percorso completato{% else %}Adesso: {{ (per.passi | selectattr('chiave', 'equalto', per.attuale) | first).nome }}{% endif %}</h2>
+
+{% if c.stato in ('nuovo', 'richiamare', 'non_interessato') and per.attuale in ('chiamata', 'appuntamento') %}
+<section class="card per-adesso" id="chiamata">
   <h2>{{ ico('telefono') }} Com'è andata la chiamata?</h2>
   <form method="post" action="{{ url_for('contatto_chiamata', cid=c.id) }}" class="crm-esiti" id="f-chiamata">
     <div class="crm-bottoni">
@@ -62,8 +74,8 @@
     <button class="btn grande" type="submit">{{ ico('ok') }} Registra</button>
   </form>
 </section>
-{% elif c.stato == 'appuntamento' %}
-<section class="card" id="chiamata">
+{% elif c.stato == 'appuntamento' and per.attuale in ('chiamata', 'appuntamento') %}
+<section class="card per-adesso" id="chiamata">
   <h2>{{ ico('calendario') }} Com'è andato l'appuntamento?</h2>
   <form method="post" action="{{ url_for('contatto_chiamata', cid=c.id) }}" class="crm-esiti">
     <label>{{ ico('nota') }} Nota (facoltativa)<textarea name="nota" rows="2"></textarea></label>
@@ -82,28 +94,82 @@
     </form>
   </details>
 </section>
-{% elif c.stato == 'contratto' %}
-<section class="card crm-percorso">
-  <h2>{{ ico('modifica') }} Contratto di affiliazione da firmare</h2>
-  <p class="meta">L'affiliazione è accettata: lo studio diventa Affiliato quando firma il contratto.</p>
-  <a class="btn oro" href="{{ url_for('contratti', stato='da_compilare') }}">{{ ico('modifica') }} Vai ai contratti</a>
-  {% if radiografia %}<a class="btn sec-btn" href="{{ url_for('risultato', vid=radiografia.id) }}">{{ ico('radar') }} Radiografia</a>{% endif %}
+{% elif per.attuale == 'radiografia' or (per.attuale in ('chiamata', 'appuntamento')) %}
+<section class="card per-adesso">
+  <p>Il cliente si è presentato: ora si fa la <b>radiografia dello studio</b>.</p>
+  <a class="btn oro grande" href="{{ url_for('nuova', contatto=c.id) }}">{{ ico('radar') }} Fai la radiografia</a>
 </section>
-{% else %}
-<section class="card crm-percorso">
-  <h2>{{ ico('radar') }} Radiografia e preventivi</h2>
-  {% if radiografia %}
-  <p>Radiografia del {{ radiografia.creata_il.strftime('%d/%m/%Y') }}.</p>
+{% elif per.attuale == 'affiliazione' %}
+<section class="card per-adesso">
+  {% if per.affiliazione %}
+  <p>Il preventivo di affiliazione <b>{{ per.affiliazione.codice }}</b> è «{{ {'bozza': 'in bozza', 'inviato': 'consegnato', 'sospeso': 'sospeso', 'rifiutato': 'rifiutato'}.get(per.affiliazione.stato, per.affiliazione.stato) }}». Quando il cliente accetta, segnalo «Accettato»: si genera il contratto.</p>
   <div class="azioni-riga">
-    <a class="btn" href="{{ url_for('risultato', vid=radiografia.id) }}">{{ ico('radar') }} Apri la radiografia</a>
-    <a class="btn oro" href="{{ url_for('preventivo_nuovo', valutazione=radiografia.id) }}">{{ ico('preventivo') }} Preventivo</a>
+    <a class="btn oro grande" href="{{ url_for('preventivo_modifica', pid=per.affiliazione.id) }}">{{ ico('stella') }} Apri l'affiliazione</a>
+    <form method="post" action="{{ url_for('preventivo_stato', pid=per.affiliazione.id) }}"><input type="hidden" name="stato" value="accettato"><button class="btn sec-btn" type="submit" onclick="return confirm('Il cliente ha accettato l\'affiliazione? Si genera il contratto da firmare.')">{{ ico('ok') }} Segna come accettata</button></form>
   </div>
   {% else %}
-  <p class="meta">Il contatto si è presentato: il passo successivo è la radiografia dello studio.</p>
-  <a class="btn oro" href="{{ url_for('nuova', contatto=c.id) }}">{{ ico('radar') }} Fai la radiografia</a>
+  <p>Radiografia fatta: il prossimo passo è il <b>preventivo di affiliazione</b>.</p>
+  <a class="btn oro grande" href="{{ url_for('preventivo_nuovo', valutazione=per.radiografia.id, tipo='affiliazione') }}">{{ ico('stella') }} Crea il preventivo di affiliazione</a>
   {% endif %}
 </section>
+{% elif per.attuale == 'contratto' %}
+<section class="card per-adesso">
+  <p>Affiliazione accettata: completa i dati e fai firmare il <b>contratto {{ per.contratto.codice }}</b>. Solo con la firma lo studio diventa affiliato.</p>
+  <a class="btn oro grande" href="{{ url_for('contratto_scheda', kid=per.contratto.id) }}">{{ ico('modifica') }} {{ 'Completa i dati del contratto' if per.contratto.stato == 'da_compilare' else 'Fai firmare il contratto' }}</a>
+</section>
+{% elif per.attuale == 'servizi' %}
+<section class="card per-adesso">
+  <p>Lo studio è <b>affiliato</b>. Ora puoi proporre i servizi per le aree da migliorare.</p>
+  <a class="btn oro grande" href="{{ url_for('preventivo_nuovo', valutazione=per.radiografia.id) }}">{{ ico('preventivo') }} Crea preventivo dei servizi</a>
+</section>
+{% else %}
+<section class="card per-adesso per-fine">
+  <p>{{ ico('stella') }} Percorso completato: studio affiliato e servizi accettati. Puoi sempre aggiungere altri preventivi.</p>
+  {% if per.radiografia %}<a class="btn sec-btn" href="{{ url_for('preventivo_nuovo', valutazione=per.radiografia.id) }}">{{ ico('piu') }} Nuovo preventivo dei servizi</a>{% endif %}
+</section>
 {% endif %}
+
+<section class="card" id="documenti">
+  <h2>{{ ico('preventivo') }} Documenti del cliente</h2>
+  <div class="doc-gruppi">
+    <div>
+      <h3>{{ ico('radar', size=16) }} Radiografie</h3>
+      {% for v in doc.radiografie %}<a class="doc-voce" href="{{ url_for('risultato', vid=v.id) }}">{{ ico('radar', size=14) }} Radiografia del {{ v.creata_il.strftime('%d/%m/%Y') }}</a>
+      {% else %}<p class="meta">Nessuna.</p>{% endfor %}
+      <a class="doc-agg" href="{{ url_for('nuova', contatto=c.id) }}">{{ ico('piu', size=14) }} Nuova radiografia</a>
+    </div>
+    <div>
+      <h3>{{ ico('modifica', size=16) }} Contratti</h3>
+      {% for k in doc.contratti %}<a class="doc-voce" href="{{ url_for('contratto_scheda', kid=k.id) }}">{{ ico('modifica', size=14) }} {{ k.codice }} · <span class="k-stato s-{{ k.stato }}">{{ {'da_compilare': 'da compilare', 'da_firmare': 'da firmare', 'firmato': 'firmato', 'annullato': 'annullato'}[k.stato] }}</span></a>
+      {% else %}<p class="meta">Nessuno: nasce quando l'affiliazione è accettata.</p>{% endfor %}
+    </div>
+  </div>
+  <h3>{{ ico('euro', size=16) }} Preventivi</h3>
+  {% if doc.preventivi %}
+  <div class="pv-bottoni">
+    {% for r in doc.preventivi %}
+    {% set colore = 'verde' if r.p.stato == 'accettato' else ('arancio' if r.p.stato == 'sospeso' else ('grigio' if r.p.stato == 'rifiutato' else 'rosso')) %}
+    <a class="pv-btn s-{{ colore }}" href="{{ url_for('preventivo_modifica', pid=r.p.id) }}">
+      <span class="pv-btn-nome">{% if r.p.tipo == 'affiliazione' %}{{ ico('stella', size=13) }} Affiliazione{% else %}{{ (r.p.oggetto or 'Preventivo')|truncate(34, True, '…') }}{% endif %}</span>
+      <span class="pv-btn-dati"><small>{{ r.p.codice }}</small><b>{{ r.imp | euro }}</b></span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}<p class="meta">Nessun preventivo ancora.</p>{% endif %}
+</section>
+
+<section class="card" id="anagrafica">
+  <div class="titolo-riga" style="margin-bottom:8px"><h2 style="margin:0">{{ ico('studio') }} Anagrafica</h2>
+    <a class="btn sec-btn piccolo" href="{{ url_for('contatto_modifica', cid=c.id) }}#fiscale">{{ ico('modifica', size=14) }} Modifica</a></div>
+  <dl class="anag">
+    <dt>Studio</dt><dd>{{ c.studio }}</dd>
+    <dt>Titolare</dt><dd>{{ c.titolare or '—' }}</dd>
+    <dt>Telefono</dt><dd>{{ c.telefono or '—' }}</dd>
+    <dt>Email</dt><dd>{{ c.email or '—' }}</dd>
+    <dt>Indirizzo</dt><dd>{{ c.indirizzo or '—' }}{% if c.cap or c.citta %}, {{ c.cap or '' }} {{ c.citta or '' }}{% endif %}{% if c.provincia %} ({{ c.provincia }}){% endif %}</dd>
+    {% for campo, et in campi_anagrafica if campo not in ('cap', 'provincia') %}<dt>{{ et }}</dt><dd>{{ c[campo] or '—' }}</dd>{% endfor %}
+  </dl>
+</section>
 
 <section class="card" id="storia">
   <h2>{{ ico('nota') }} Note e storia</h2>

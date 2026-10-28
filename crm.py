@@ -112,6 +112,77 @@ def commerciali_attivi():
     return Utente.query.filter(Utente.attivo.is_(True), Utente.approvato.isnot(False)).order_by(Utente.nome).all()
 
 
+CAMPI_ANAGRAFICA = [
+    ("ragione_sociale", "Ragione sociale"), ("piva", "Partita IVA"), ("cf", "Codice fiscale"),
+    ("cap", "CAP"), ("provincia", "Provincia (sigla)"), ("pec", "PEC"), ("sdi", "Codice SDI"),
+    ("legale_rappresentante", "Legale rappresentante"), ("lr_cf", "CF del legale rappresentante"),
+    ("lr_nascita", "Luogo e data di nascita del legale rappresentante"),
+]
+
+
+def documenti_del(c):
+    """Radiografie, preventivi e contratti di una scheda cliente."""
+    from app import Contratto, Preventivo, affiliazione_di, calcola_totali, contratto_di
+    import json
+    vids = {v.id for v in Valutazione.query.filter_by(contatto_id=c.id).all()}
+    if c.valutazione_id:
+        vids.add(c.valutazione_id)
+    radiografie = Valutazione.query.filter(Valutazione.id.in_(vids)).order_by(Valutazione.creata_il.desc()).all() if vids else []
+    preventivi = Preventivo.query.filter(Preventivo.valutazione_id.in_(vids)).order_by(Preventivo.creato_il).all() if vids else []
+    voci = [{"p": p, "imp": calcola_totali(json.loads(p.righe), p.sconto_globale)["imponibile"]} for p in preventivi]
+    contratti = Contratto.query.filter(Contratto.preventivo_id.in_([p.id for p in preventivi])) \
+        .order_by(Contratto.creato_il).all() if preventivi else []
+    return {"radiografie": radiografie, "preventivi": voci, "contratti": contratti}
+
+
+def percorso(c, doc):
+    """I 6 passi del cliente: fatto / in corso / da fare, il passo attuale e cosa fare adesso."""
+    from app import affiliazione_di, contratto_di
+    v = doc["radiografie"][0] if doc["radiografie"] else None
+    aff = None
+    for r in doc["radiografie"]:
+        a = affiliazione_di(r.id)
+        if a and (not aff or a.stato == "accettato"):
+            aff, v = a, r
+            if a.stato == "accettato":
+                break
+    k = contratto_di(aff.id) if aff and aff.stato == "accettato" else None
+    servizi = [x for x in doc["preventivi"] if x["p"].tipo != "affiliazione"]
+    servizi_ok = [x for x in servizi if x["p"].stato == "accettato"]
+    avanzato = c.stato in ("appuntamento", "presentato", "contratto", "cliente") or bool(v)
+    appunt_fatto = c.stato in ("presentato", "contratto", "cliente") or bool(v)
+    passi = [
+        {"chiave": "chiamata", "nome": "Chiamata", "icona": "telefono",
+         "fatto": avanzato, "dettaglio": f"{c.tentativi or 0} chiamat{'a' if (c.tentativi or 0) == 1 else 'e'}"},
+        {"chiave": "appuntamento", "nome": "Appuntamento", "icona": "calendario",
+         "fatto": appunt_fatto, "in_corso": c.stato == "appuntamento",
+         "dettaglio": ("il " + c.appuntamento_il.replace(tzinfo=timezone.utc).astimezone(ROMA).strftime("%d/%m %H:%M"))
+         if c.appuntamento_il else ""},
+        {"chiave": "radiografia", "nome": "Radiografia", "icona": "radar", "fatto": bool(v),
+         "dettaglio": v.creata_il.strftime("%d/%m/%Y") if v else "",
+         "link": url_for("risultato", vid=v.id) if v else None},
+        {"chiave": "affiliazione", "nome": "Affiliazione", "icona": "stella",
+         "fatto": bool(aff and aff.stato == "accettato"), "in_corso": bool(aff and aff.stato != "accettato"),
+         "dettaglio": (aff.codice + " · " + {"bozza": "bozza", "inviato": "consegnata", "sospeso": "sospesa",
+                                              "accettato": "accettata", "rifiutato": "rifiutata"}.get(aff.stato, aff.stato)) if aff else "",
+         "link": url_for("preventivo_modifica", pid=aff.id) if aff else None},
+        {"chiave": "contratto", "nome": "Contratto", "icona": "modifica",
+         "fatto": bool(k and k.stato == "firmato"), "in_corso": bool(k and k.stato != "firmato"),
+         "dettaglio": (k.codice + (" · firmato" if k.stato == "firmato" else " · da firmare")) if k else "",
+         "link": url_for("contratto_scheda", kid=k.id) if k else None},
+        {"chiave": "servizi", "nome": "Servizi", "icona": "preventivo", "fatto": bool(servizi_ok),
+         "in_corso": bool(servizi) and not servizi_ok,
+         "dettaglio": f"{len(servizi_ok)} accettat{'o' if len(servizi_ok) == 1 else 'i'} su {len(servizi)}" if servizi else ""},
+    ]
+    attuale = next((p for p in passi if not p["fatto"]), None)
+    if c.stato == "non_interessato" and not v:
+        attuale = passi[0]
+    for p in passi:
+        p["stato"] = "fatto" if p["fatto"] else ("ora" if p is attuale else ("in_corso" if p.get("in_corso") else "dopo"))
+    return {"passi": passi, "attuale": attuale["chiave"] if attuale else "completo", "radiografia": v,
+            "affiliazione": aff, "contratto": k}
+
+
 # ------------------------------------------------------------------ pipeline
 @app.route("/contatti")
 @login_richiesto
@@ -211,8 +282,11 @@ def contatto_scheda(cid):
     aperture_per = dict(db.session.query(Attivita.utente_id, db.func.count()).filter_by(
         contatto_id=c.id, tipo="apertura").group_by(Attivita.utente_id).all())
     utenti = {u.id: u for u in Utente.query.all()}
-    radiografia = db.session.get(Valutazione, c.valutazione_id) if c.valutazione_id else None
+    doc = documenti_del(c)
+    per = percorso(c, doc)
+    radiografia = per["radiografia"]
     return render_template("contatto.html", c=c, storia=storia, utenti=utenti, radiografia=radiografia,
+                           doc=doc, per=per, campi_anagrafica=CAMPI_ANAGRAFICA,
                            esiti=ESITI_CHIAMATA, esiti_app=ESITI_APPUNTAMENTO, aperture_per=aperture_per,
                            commerciali=commerciali_attivi(), domani=per_input(
                                (datetime.now(ROMA) + timedelta(days=1)).replace(hour=10, minute=0)
@@ -308,6 +382,10 @@ def contatto_modifica(cid):
         c.studio = f.get("studio", "").strip() or c.studio
         for campo in ("titolare", "email", "citta", "indirizzo", "note"):
             setattr(c, campo, f.get(campo, "").strip())
+        for campo, _ in CAMPI_ANAGRAFICA:
+            if campo in f:
+                setattr(c, campo, f.get(campo, "").strip()[:200] or None)
+        c.provincia = (c.provincia or "").upper()[:4] or None
         c.telefono = f.get("telefono", "").strip()
         c.telefono_norm = norm_telefono(c.telefono)
         c.richiamare_il = da_locale(f.get("richiamare_il"))
@@ -317,7 +395,8 @@ def contatto_modifica(cid):
         db.session.commit()
         flash("Contatto aggiornato.")
         return redirect(url_for("contatto_scheda", cid=c.id))
-    return render_template("contatto_form.html", c=c, form={}, commerciali=commerciali_attivi())
+    return render_template("contatto_form.html", c=c, form={}, commerciali=commerciali_attivi(),
+                           campi_anagrafica=CAMPI_ANAGRAFICA)
 
 
 @app.post("/contatti/<int:cid>/stato")

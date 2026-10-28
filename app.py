@@ -167,6 +167,17 @@ class Contatto(db.Model):
     consenso_il = db.Column(db.DateTime)                     # quando è stato raccolto il consenso (UTC)
     consenso_da = db.Column(db.Integer)                      # utente che l'ha raccolto
     token_nl = db.Column(db.String(40), index=True)          # per il link di disiscrizione
+    # anagrafica fiscale (serve per preventivi e contratto; il contratto la riprende da qui)
+    ragione_sociale = db.Column(db.String(200))
+    piva = db.Column(db.String(40))
+    cf = db.Column(db.String(40))
+    cap = db.Column(db.String(10))
+    provincia = db.Column(db.String(4))
+    pec = db.Column(db.String(200))
+    sdi = db.Column(db.String(10))
+    legale_rappresentante = db.Column(db.String(200))
+    lr_cf = db.Column(db.String(40))
+    lr_nascita = db.Column(db.String(200))
     elim_richiesta_da = db.Column(db.Integer)                # commerciale che ha chiesto all'admin di eliminare la scheda
     elim_richiesta_il = db.Column(db.DateTime)
     elim_motivo = db.Column(db.String(300))
@@ -388,6 +399,18 @@ def crea_contratto(p):
                   valutazione_id=p.valutazione_id, utente_id=p.utente_id, stato="da_compilare",
                   ragione_sociale=p.cliente, piva=p.piva_cliente, indirizzo=p.indirizzo, citta=p.citta,
                   email=p.email_cliente, telefono=p.telefono_cliente, legale_rappresentante=p.referente)
+    v = db.session.get(Valutazione, p.valutazione_id) if p.valutazione_id else None
+    ct = db.session.get(Contatto, v.contatto_id) if v and v.contatto_id else None
+    if ct:   # anagrafica della scheda cliente
+        for campo in ("ragione_sociale", "piva", "cf", "indirizzo", "cap", "citta", "provincia", "pec", "sdi",
+                      "email", "telefono", "legale_rappresentante", "lr_cf", "lr_nascita"):
+            valore = getattr(ct, campo, None)
+            if valore:
+                setattr(c, campo, valore)
+        if not c.ragione_sociale:
+            c.ragione_sociale = ct.studio
+        if not c.legale_rappresentante and ct.titolare:
+            c.legale_rappresentante = ct.titolare
     db.session.add(c)
     db.session.flush()
     return c
@@ -467,8 +490,33 @@ def pulizia_dati_prova():
         Preventivo.query.filter_by(valutazione_id=v.id).update({"valutazione_id": None})
         db.session.delete(v)
     db.session.flush()
+    for c in Contatto.query.filter_by(utente_id=u.id).all():
+        Attivita.query.filter_by(contatto_id=c.id).delete()
+        db.session.delete(c)
+    Attivita.query.filter_by(utente_id=u.id).update({"utente_id": None})
+    db.session.flush()
     db.session.delete(u)
     db.session.commit()
+
+
+def collega_radiografie_orfane():
+    """Ogni radiografia deve avere la sua scheda cliente: per quelle fatte senza contatto la crea (una volta)."""
+    orfane = Valutazione.query.filter(Valutazione.contatto_id.is_(None)).all()
+    for v in orfane:
+        a = affiliazione_di(v.id)
+        k = contratto_di(a.id) if a and a.stato == "accettato" else None
+        stato = "cliente" if k and k.stato == "firmato" else ("contratto" if k else "presentato")
+        tel = re.sub(r"\D", "", v.telefono_cliente or "")
+        c = Contatto(utente_id=v.utente_id, studio=v.studio, titolare=v.referente, citta=v.citta, email=v.email_cliente,
+                     telefono=v.telefono_cliente, telefono_norm=(tel[2:] if tel.startswith("39") and len(tel) > 10 else tel) or None,
+                     stato=stato, fonte="radiografia", valutazione_id=v.id, creato_il=v.creata_il, modificato_il=v.creata_il)
+        db.session.add(c)
+        db.session.flush()
+        v.contatto_id = c.id
+        db.session.add(Attivita(contatto_id=c.id, utente_id=v.utente_id, tipo="creazione",
+                                testo="Scheda creata automaticamente dalla radiografia già esistente"))
+    if orfane:
+        db.session.commit()
 
 
 def fissa_questionario_radiografie():
@@ -539,6 +587,7 @@ with app.app_context():
         completa_dati_azienda()
         pulizia_dati_prova()
         fissa_questionario_radiografie()
+        collega_radiografie_orfane()
     except Exception as e:
         db.session.rollback()
         print(f"ATTENZIONE: completamento dati aziendali non riuscito: {e}", flush=True)
@@ -618,7 +667,7 @@ def login():
             dest = request.args.get("next", "")
             if dest.startswith("/") and not dest.startswith("//"):
                 return redirect(dest)
-            return redirect(url_for("admin") if u.is_admin else url_for("index"))
+            return redirect(url_for("contatti"))
     return render_template("login.html")
 
 
@@ -651,7 +700,7 @@ def registrati():
 @app.route("/area-privata/")
 def area_privata():
     """Indirizzo da collegare alla voce "Area privata" del sito dentaliagroup.it."""
-    return redirect(url_for("admin") if g.utente and g.utente.is_admin else url_for("index") if g.utente else url_for("login"))
+    return redirect(url_for("contatti") if g.utente else url_for("login"))
 
 
 @app.route("/logout")
@@ -792,6 +841,13 @@ def media_di(punteggi):
 
 @app.route("/")
 @login_richiesto
+def home():
+    """Si parte sempre dai contatti."""
+    return redirect(url_for("contatti"))
+
+
+@app.route("/radiografie")
+@login_richiesto
 def index():
     q = Valutazione.query
     filtro = request.args.get("commerciale", type=int)
@@ -834,8 +890,16 @@ def nuova():
             note_domande=json.dumps(note_domande, ensure_ascii=False) if note_domande else None,
         )
         c = contatto_visibile_o_none(request.form.get("contatto_id", type=int))
-        if c:
-            v.contatto_id = c.id
+        if not c:   # ogni radiografia ha la sua scheda cliente
+            c = Contatto(utente_id=g.utente.id, studio=v.studio, titolare=v.referente, citta=v.citta,
+                         email=v.email_cliente, telefono=v.telefono_cliente, stato="presentato", fonte="radiografia")
+            tel = re.sub(r"\D", "", v.telefono_cliente or "")
+            c.telefono_norm = tel[2:] if tel.startswith("39") and len(tel) > 10 else tel or None
+            db.session.add(c)
+            db.session.flush()
+            db.session.add(Attivita(contatto_id=c.id, utente_id=g.utente.id, tipo="creazione",
+                                    testo="Scheda creata dalla radiografia"))
+        v.contatto_id = c.id
         db.session.add(v)
         db.session.flush()
         if c:
@@ -1205,6 +1269,14 @@ def preventivo_nuovo():
         p.valutazione_id = v.id
         p.cliente, p.referente, p.citta = v.studio, v.referente, v.citta
         p.email_cliente, p.telefono_cliente = v.email_cliente, v.telefono_cliente
+        ct = db.session.get(Contatto, v.contatto_id) if v.contatto_id else None
+        if ct:
+            p.cliente = ct.ragione_sociale or ct.studio or p.cliente
+            p.referente = ct.legale_rappresentante or ct.titolare or p.referente
+            p.piva_cliente = ct.piva
+            p.indirizzo = ", ".join(x for x in (ct.indirizzo, " ".join(y for y in (ct.cap, ct.citta) if y)) if x) or None
+            p.email_cliente = ct.email or p.email_cliente
+            p.telefono_cliente = ct.telefono or p.telefono_cliente
         if p.tipo != "affiliazione":
             p.oggetto = "Piano di miglioramento a seguito della radiografia dello studio"
             # preselezione: le voci di listino collegate alle aree sotto 75

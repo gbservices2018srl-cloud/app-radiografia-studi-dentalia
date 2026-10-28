@@ -207,6 +207,13 @@ def contratto_scheda(kid):
             setattr(k, campo, request.form.get(campo, "").strip()[:300] or None)
         k.provincia = (k.provincia or "").upper()[:4] or None
         k.note = request.form.get("note", "").strip() or None
+        ct = contatto_del(k)
+        if ct:   # l'anagrafica resta una sola: quella della scheda cliente
+            for campo in ("ragione_sociale", "piva", "cf", "cap", "provincia", "pec", "sdi", "legale_rappresentante",
+                          "lr_cf", "lr_nascita", "indirizzo", "citta", "email"):
+                valore = getattr(k, campo)
+                if valore:
+                    setattr(ct, campo, valore)
         k.modificato_il = datetime.utcnow()
         mancano = mancanti(k)
         if request.form.get("azione") == "pronto":

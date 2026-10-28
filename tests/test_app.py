@@ -160,10 +160,11 @@ class TestApp(unittest.TestCase):
         giulia = m.app.test_client()
         r = giulia.post("/login", data={"email": "giulia@test.it", "password": "password123"})
         self.assertEqual(r.status_code, 302)
-        self.assertEqual(giulia.get("/").status_code, 200)
+        self.assertTrue(r.location.endswith("/contatti"))
+        self.assertEqual(giulia.get("/contatti").status_code, 200)
         # disattivazione: la sessione viene chiusa
         self.admin.post(f"/admin/utenti/{uid}/stato")
-        self.assertEqual(giulia.get("/").status_code, 302)
+        self.assertEqual(giulia.get("/contatti").status_code, 302)
 
     def test_12_rifiuto_richiesta(self):
         m.app.test_client().post("/registrati", data={"nome": "Spam", "email": "spam@test.it",
@@ -174,9 +175,11 @@ class TestApp(unittest.TestCase):
         with m.app.app_context():
             self.assertIsNone(m.Utente.query.filter_by(email="spam@test.it").first())
 
-    def test_13_admin_atterra_su_admin(self):
+    def test_13_si_parte_dai_contatti(self):
         r = m.app.test_client().post("/login", data={"email": "admin@test.it", "password": "admin-test-123"})
-        self.assertTrue(r.location.endswith("/admin"))
+        self.assertTrue(r.location.endswith("/contatti"))
+        self.assertTrue(self.marco.get("/").location.endswith("/contatti"))
+        self.assertEqual(self.marco.get("/radiografie").status_code, 200)
 
     def test_14_dati_azienda_e_sdi(self):
         with m.app.app_context():
@@ -199,7 +202,7 @@ class TestApp(unittest.TestCase):
 
     def test_15_area_privata_e_pulizia(self):
         self.assertTrue(m.app.test_client().get("/area-privata").location.endswith("/login"))
-        self.assertTrue(self.admin.get("/area-privata/").location.endswith("/admin"))
+        self.assertTrue(self.admin.get("/area-privata/").location.endswith("/contatti"))
         self.assertIn("Area privata", m.app.test_client().get("/login").get_data(as_text=True))
         prova = m.app.test_client()
         self.admin.post("/admin/utenti", data={"nome": "Prova", "email": "prova@gmail.com",
@@ -747,6 +750,52 @@ class TestApp(unittest.TestCase):
             self.assertIsNone(m.contratto_di(pid))
             self.assertIsNotNone(m.db.session.get(m.Contatto, cid))
             self.assertIsNotNone(m.db.session.get(m.Valutazione, vid))
+
+    def test_34_scheda_cliente_guida_il_percorso(self):
+        cid = self._nuovo_contatto(self.laura, studio="Studio Percorso", titolare="Dott. Percorso", telefono="070 555 1111")
+        adesso = lambda: self.laura.get(f"/contatti/{cid}").get_data(as_text=True)
+        self.assertIn("Adesso: Chiamata", adesso())
+        self.laura.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento", "appuntamento_il": "2026-12-03T10:00"})
+        self.assertIn("Adesso: Appuntamento", adesso())
+        self.laura.post(f"/contatti/{cid}/chiamata", data={"esito": "presentato"})
+        self.assertIn("Fai la radiografia", adesso())
+        # anagrafica fiscale sulla scheda: il contratto la riprende
+        self.laura.post(f"/contatti/{cid}/modifica", data={"studio": "Studio Percorso", "titolare": "Dott. Percorso",
+                                                         "telefono": "070 555 1111", "ragione_sociale": "Percorso Srl",
+                                                         "piva": "09876543210", "cap": "09100", "provincia": "ca",
+                                                         "legale_rappresentante": "Dott. Percorso", "consenso_presente": "1"})
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.laura.post("/nuova", data={"studio": "Studio Percorso", "contatto_id": str(cid),
+                                           **{d["id"]: "2" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        self.assertIn("Crea il preventivo di affiliazione", adesso())
+        r = affiliazione(self.laura, vid, stato="inviato", cliente="Studio Percorso")
+        pid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        self.assertIn("Segna come accettata", adesso())
+        self.laura.post(f"/preventivi/{pid}/stato", data={"stato": "accettato"})
+        self.assertIn("Completa i dati del contratto", adesso())
+        with m.app.app_context():
+            k = m.contratto_di(pid)
+            self.assertEqual((k.ragione_sociale, k.piva, k.provincia), ("Percorso Srl", "09876543210", "CA"))
+        firma_contratto(self.laura, vid)
+        pagina = adesso()
+        self.assertIn("Crea preventivo dei servizi", pagina)
+        self.assertIn("Documenti del cliente", pagina)
+        self.assertIn("pv-btn s-verde", pagina)
+
+    def test_35_radiografia_senza_contatto_crea_la_scheda(self):
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.marco.post("/nuova", data={"studio": "Studio Senza Scheda", "referente": "Dott. Solo",
+                                           **{d["id"]: "3" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        with m.app.app_context():
+            v = m.db.session.get(m.Valutazione, vid)
+            c = m.db.session.get(m.Contatto, v.contatto_id)
+            self.assertEqual((c.studio, c.titolare, c.stato), ("Studio Senza Scheda", "Dott. Solo", "presentato"))
+            m.collega_radiografie_orfane()   # nessuna orfana: non crea doppioni
+            self.assertEqual(m.Contatto.query.filter_by(studio="Studio Senza Scheda").count(), 1)
 
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():

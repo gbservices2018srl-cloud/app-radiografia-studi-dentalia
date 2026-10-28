@@ -29,6 +29,15 @@
     {% endif %}
   </div>
   {% if c %}
+  <details class="anag-fiscale" id="fiscale" {{ 'open' if c.ragione_sociale or c.piva }}>
+    <summary>{{ ico('preventivo', size=15) }} Dati fiscali per preventivi e contratto</summary>
+    <p class="meta">Si compilano una volta sola qui: preventivi e contratto li riprendono da soli.</p>
+    <div class="griglia">
+      {% for campo, et in campi_anagrafica %}
+      <label>{{ et }}<input name="{{ campo }}" value="{{ c[campo] or '' }}" {{ 'maxlength=4' if campo == 'provincia' }}{{ ' type=email' if campo == 'pec' }}></label>
+      {% endfor %}
+    </div>
+  </details>
   <input type="hidden" name="consenso_presente" value="1">
   <label class="crm-spunta" style="margin:12px 0">
     <input type="checkbox" name="consenso_newsletter" value="1" {{ 'checked' if c.newsletter }} {{ 'disabled' if c.disiscritto }}>

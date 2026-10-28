@@ -591,3 +591,30 @@ a.k-modo:hover { border-color: var(--oro); }
 .el-richiesta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #fdecec; color: var(--critico); }
 .el-richiesta span { flex: 1 1 240px; color: var(--testo); }
 .el-richieste { border: 2px solid #f3c1c1; }
+
+/* ============ Scheda cliente: percorso a passi ============ */
+.per-passi { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 0 0 16px; counter-reset: passo; }
+.per-passo { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; background: #fff; border: 1px solid var(--bordo); text-decoration: none; color: var(--tenue); min-width: 0; }
+.per-num { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; background: var(--bg); color: var(--tenue); }
+.per-testo { min-width: 0; } .per-testo b { display: block; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.per-testo small { display: block; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.per-passo.st-fatto { border-color: #b7dfba; background: #f3faf3; color: var(--buono); } .per-passo.st-fatto .per-num { background: var(--buono); color: #fff; }
+.per-passo.st-ora { border: 2px solid var(--oro); background: var(--oro-chiaro); color: var(--primario); box-shadow: 0 4px 14px rgba(204,161,101,.25); }
+.per-passo.st-ora .per-num { background: var(--oro); color: var(--primario); }
+.per-passo.st-in_corso { border-color: #f1d3a6; color: #b26a00; } .per-passo.st-in_corso .per-num { background: #fff3e2; color: #b26a00; }
+a.per-passo:hover { transform: translateY(-1px); }
+.per-adesso-titolo { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.per-adesso { border: 2px solid var(--oro); }
+.per-adesso > p { margin-top: 0; }
+.per-fine { border-color: var(--buono); background: #f3faf3; }
+.doc-gruppi { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+#documenti h3 { font-size: .95rem; color: var(--primario); margin: 6px 0 8px; display: flex; align-items: center; gap: 6px; }
+.doc-voce { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border: 1px solid var(--bordo); border-radius: 10px; margin-bottom: 6px; text-decoration: none; color: var(--testo); font-size: .9rem; }
+.doc-voce:hover { border-color: var(--oro); }
+.doc-agg { display: inline-flex; align-items: center; gap: 4px; font-size: .85rem; color: var(--oro-scuro); text-decoration: none; }
+.anag { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: .92rem; }
+.anag dt { color: var(--tenue); } .anag dd { margin: 0; font-weight: 500; }
+.anag-fiscale { margin: 14px 0; padding: 12px; border: 1px solid var(--oro-bordo); border-radius: 12px; background: var(--oro-chiaro); }
+.anag-fiscale summary { cursor: pointer; font-weight: 600; color: var(--primario); }
+@media (max-width: 860px) { .per-passi { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .per-passi { grid-template-columns: repeat(2, 1fr); } .doc-gruppi { grid-template-columns: 1fr; } .anag { grid-template-columns: 1fr; } .anag dd { margin-bottom: 6px; } }

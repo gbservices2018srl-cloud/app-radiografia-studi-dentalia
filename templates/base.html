@@ -22,8 +22,7 @@
       <span class="sotto">Radiografia Studio</span>
     </a>
     <nav class="menu">
-      {% set ep = request.endpoint or '' %}
-      <a href="{{ url_for('preventivo_nuovo') if ep.startswith('preventiv') else (url_for('contatto_nuovo') if ep.startswith('contatt') else url_for('nuova')) }}" class="btn chiaro">+ Nuov{{ 'o' if ep.startswith('preventiv') or ep.startswith('contatt') else 'a' }}</a>
+      <a href="{{ url_for('contatto_nuovo') }}" class="btn chiaro">+ Nuovo contatto</a>
       <details class="utente-menu">
         <summary aria-label="Menu utente">{{ utente.nome[:1] | upper }}</summary>
         <div class="tendina">
@@ -47,12 +46,12 @@
     </nav>
   </header>
   <nav class="schede no-print">
-    <a href="{{ url_for('contatti') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('contatt') }}">Contatti</a>
-    <a href="{{ url_for('index') }}" class="{{ 'on' if request.endpoint in ('index','nuova','risultato') }}">Radiografie</a>
-    <a href="{{ url_for('preventivi') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('preventiv') }}">Preventivi</a>
-    <a href="{{ url_for('contratti') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('contratt') }}">Contratti</a>
-    <a href="{{ url_for('kpi') }}" class="{{ 'on' if request.endpoint == 'kpi' }}">KPI</a>
-    {% if utente.is_admin %}<a href="{{ url_for('admin') }}" class="{{ 'on' if request.endpoint and request.endpoint.startswith('admin') }}">Admin</a>{% endif %}
+    {% set ep = request.endpoint or '' %}
+    <a href="{{ url_for('contatti') }}" class="{{ 'on' if ep.startswith('contatt') or ep in ('index', 'nuova', 'risultato') }}">Contatti</a>
+    <a href="{{ url_for('preventivi') }}" class="{{ 'on' if ep.startswith('preventiv') }}">Preventivi</a>
+    <a href="{{ url_for('contratti') }}" class="{{ 'on' if ep.startswith('contratt') and not ep.startswith('contatt') }}">Contratti</a>
+    <a href="{{ url_for('kpi') }}" class="{{ 'on' if ep == 'kpi' }}">KPI</a>
+    {% if utente.is_admin %}<a href="{{ url_for('admin') }}" class="{{ 'on' if ep.startswith('admin') or ep.startswith('newsletter') or ep.startswith('sequenza') }}">Admin</a>{% endif %}
   </nav>
   {% endif %}
   <main class="wrap">
