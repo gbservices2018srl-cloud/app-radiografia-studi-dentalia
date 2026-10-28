@@ -19,8 +19,8 @@ from zoneinfo import ZoneInfo
 from flask import abort, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import or_
 
-from app import (Attivita, Contatto, Utente, Valutazione, admin_richiesto, app, contatto_visibile_o_none, db,
-                 login_richiesto)
+from app import (Attivita, Contatto, Contratto, Newsletter, NewsletterInvio, Preventivo, SequenzaInvio, Utente,
+                 Valutazione, admin_richiesto, app, contatto_visibile_o_none, db, login_richiesto)
 
 ROMA = ZoneInfo("Europe/Rome")
 
@@ -334,15 +334,84 @@ def contatto_stato(cid):
     return redirect(url_for("contatto_scheda", cid=c.id))
 
 
-@app.post("/contatti/<int:cid>/elimina")
-@login_richiesto
-def contatto_elimina(cid):
-    c = contatto_visibile(cid)
+def collegati_al_contatto(c):
+    """Tutto ciò che appartiene a una scheda cliente e va eliminato con lei."""
+    vids = {v.id for v in Valutazione.query.filter_by(contatto_id=c.id).all()}
+    if c.valutazione_id:
+        vids.add(c.valutazione_id)
+    valutazioni = Valutazione.query.filter(Valutazione.id.in_(vids)).all() if vids else []
+    preventivi = Preventivo.query.filter(Preventivo.valutazione_id.in_(vids)).all() if vids else []
+    pids = [p.id for p in preventivi]
+    condizioni = ([Contratto.preventivo_id.in_(pids)] if pids else []) + ([Contratto.valutazione_id.in_(vids)] if vids else [])
+    contratti = Contratto.query.filter(db.or_(*condizioni)).all() if condizioni else []
+    return {"valutazioni": valutazioni, "preventivi": preventivi, "contratti": contratti,
+            "attivita": Attivita.query.filter_by(contatto_id=c.id).count(),
+            "email": SequenzaInvio.query.filter_by(contatto_id=c.id).count()
+            + NewsletterInvio.query.filter_by(contatto_id=c.id).count()}
+
+
+def elimina_contatto_completo(c):
+    tutto = collegati_al_contatto(c)
+    for k in tutto["contratti"]:
+        db.session.delete(k)
+    db.session.flush()
+    for p in tutto["preventivi"]:
+        db.session.delete(p)
+    db.session.flush()
+    for v in tutto["valutazioni"]:
+        db.session.delete(v)
     Attivita.query.filter_by(contatto_id=c.id).delete()
+    SequenzaInvio.query.filter_by(contatto_id=c.id).delete()
+    NewsletterInvio.query.filter_by(contatto_id=c.id).delete()
     db.session.delete(c)
+    return tutto
+
+
+@app.route("/contatti/<int:cid>/elimina", methods=["GET", "POST"])
+@admin_richiesto
+def contatto_elimina(cid):
+    """Solo l'admin, dopo una pagina di conferma: elimina la scheda e TUTTO ciò che le è collegato."""
+    c = db.session.get(Contatto, cid) or abort(404)
+    tutto = collegati_al_contatto(c)
+    if request.method == "POST":
+        if request.form.get("conferma", "").strip().upper() != "ELIMINA" or not request.form.get("irreversibile"):
+            flash("Per eliminare scrivi ELIMINA e spunta la casella di conferma.")
+            return redirect(url_for("contatto_elimina", cid=c.id))
+        nome = c.studio
+        elimina_contatto_completo(c)
+        db.session.commit()
+        flash(f"Scheda «{nome}» eliminata definitivamente, con {len(tutto['valutazioni'])} radiografie, "
+              f"{len(tutto['preventivi'])} preventivi e {len(tutto['contratti'])} contratti.")
+        return redirect(url_for("contatti"))
+    utenti = {u.id: u for u in Utente.query.all()}
+    return render_template("contatto_elimina.html", c=c, tutto=tutto, utenti=utenti)
+
+
+@app.post("/contatti/<int:cid>/richiedi-eliminazione")
+@login_richiesto
+def contatto_richiedi_eliminazione(cid):
+    """Il commerciale non elimina: chiede all'amministratore, che approva o rifiuta."""
+    c = contatto_visibile(cid)
+    motivo = request.form.get("motivo", "").strip()[:300]
+    if not motivo:
+        flash("Scrivi il motivo della richiesta.")
+        return redirect(url_for("contatto_scheda", cid=c.id) + "#gestisci")
+    c.elim_richiesta_da, c.elim_richiesta_il, c.elim_motivo = g.utente.id, datetime.utcnow(), motivo
+    registra(c, "stato", esito="richiesta_eliminazione", testo=f"Chiesta l'eliminazione della scheda: {motivo}")
     db.session.commit()
-    flash(f"Contatto «{c.studio}» eliminato.")
-    return redirect(url_for("contatti"))
+    flash("Richiesta inviata all'amministratore: la scheda resta finché non la approva.")
+    return redirect(url_for("contatto_scheda", cid=c.id))
+
+
+@app.post("/contatti/<int:cid>/rifiuta-eliminazione")
+@admin_richiesto
+def contatto_rifiuta_eliminazione(cid):
+    c = db.session.get(Contatto, cid) or abort(404)
+    c.elim_richiesta_da = c.elim_richiesta_il = c.elim_motivo = None
+    registra(c, "stato", esito="eliminazione_rifiutata", testo="Richiesta di eliminazione rifiutata dall'amministratore")
+    db.session.commit()
+    flash(f"Richiesta di eliminazione di «{c.studio}» rifiutata: la scheda resta.")
+    return redirect(request.form.get("torna") or url_for("admin"))
 
 
 @app.post("/contatti/assegna")

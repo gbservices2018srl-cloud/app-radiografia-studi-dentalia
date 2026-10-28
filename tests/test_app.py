@@ -696,6 +696,58 @@ class TestApp(unittest.TestCase):
             self.assertIn(f"pv-btn {colore}", pagina)
         self.assertIn("Sospeso", pagina)
 
+    def test_32_eliminazione_scheda_completa_solo_admin(self):
+        cid = self._nuovo_contatto(self.marco, studio="Studio Da Cancellare", telefono="070 555 0707")
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "appuntamento", "appuntamento_il": "2026-12-02T10:00"})
+        self.marco.post(f"/contatti/{cid}/chiamata", data={"esito": "presentato"})
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.marco.post("/nuova", data={"studio": "Studio Da Cancellare", "contatto_id": str(cid),
+                                           **{d["id"]: "2" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        affiliazione(self.marco, vid, cliente="Studio Da Cancellare")
+        kid = firma_contratto(self.marco, vid)
+        # il commerciale non può eliminare: può solo chiedere
+        self.assertEqual(self.marco.get(f"/contatti/{cid}/elimina").status_code, 403)
+        self.assertEqual(self.marco.post(f"/contatti/{cid}/elimina", data={"conferma": "ELIMINA", "irreversibile": "1"}).status_code, 403)
+        self.marco.post(f"/contatti/{cid}/richiedi-eliminazione", data={"motivo": "Doppione"})
+        self.assertIn("Studio Da Cancellare", self.admin.get("/admin").get_data(as_text=True))
+        # pagina di conferma con l'elenco; senza ELIMINA non succede nulla
+        conferma = self.admin.get(f"/contatti/{cid}/elimina").get_data(as_text=True)
+        self.assertIn("Operazione irreversibile", conferma)
+        self.assertIn("contratti firmati", conferma)
+        self.admin.post(f"/contatti/{cid}/elimina", data={"conferma": "no", "irreversibile": "1"})
+        with m.app.app_context():
+            self.assertIsNotNone(m.db.session.get(m.Contatto, cid))
+        self.admin.post(f"/contatti/{cid}/elimina", data={"conferma": "elimina", "irreversibile": "1"})
+        with m.app.app_context():
+            self.assertIsNone(m.db.session.get(m.Contatto, cid))
+            self.assertIsNone(m.db.session.get(m.Valutazione, vid))
+            self.assertIsNone(m.db.session.get(m.Contratto, kid))
+            self.assertEqual(m.Preventivo.query.filter_by(valutazione_id=vid).count(), 0)
+            self.assertEqual(m.Attivita.query.filter_by(contatto_id=cid).count(), 0)
+
+    def test_33_eliminare_un_preventivo_lascia_la_scheda(self):
+        cid = self._nuovo_contatto(self.marco, studio="Studio Resta", telefono="070 555 0808")
+        with m.app.app_context():
+            aree = m.aree_correnti()
+        r = self.marco.post("/nuova", data={"studio": "Studio Resta", "contatto_id": str(cid),
+                                           **{d["id"]: "2" for a in aree for d in a["domande"]}})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        r = affiliazione(self.marco, vid, cliente="Studio Resta")
+        pid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        firma_contratto(self.marco, vid)
+        # contratto firmato: il commerciale non può eliminare il preventivo, l'admin sì (e con lui il contratto)
+        self.marco.post(f"/preventivi/{pid}/elimina")
+        with m.app.app_context():
+            self.assertIsNotNone(m.db.session.get(m.Preventivo, pid))
+        self.admin.post(f"/preventivi/{pid}/elimina")
+        with m.app.app_context():
+            self.assertIsNone(m.db.session.get(m.Preventivo, pid))
+            self.assertIsNone(m.contratto_di(pid))
+            self.assertIsNotNone(m.db.session.get(m.Contatto, cid))
+            self.assertIsNotNone(m.db.session.get(m.Valutazione, vid))
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

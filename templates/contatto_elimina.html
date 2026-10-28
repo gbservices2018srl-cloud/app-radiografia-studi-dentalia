@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Elimina {{ c.studio }}{% endblock %}
+{% block content %}
+<p class="meta"><a href="{{ url_for('contatto_scheda', cid=c.id) }}">← {{ c.studio }}</a></p>
+
+<section class="card el-box">
+  <div class="el-testa">
+    <span class="el-ico">{{ ico('cestino', size=30) }}</span>
+    <div>
+      <h1>Eliminare la scheda di «{{ c.studio }}»?</h1>
+      <p class="el-avviso"><b>Operazione irreversibile.</b> La scheda e tutto quello che le è collegato verranno cancellati per sempre: non si potranno recuperare.</p>
+    </div>
+  </div>
+
+  {% if c.elim_richiesta_il %}
+  <p class="avviso">{{ ico('nota') }} Richiesta da <b>{{ utenti[c.elim_richiesta_da].nome if utenti.get(c.elim_richiesta_da) else '—' }}</b> il {{ c.elim_richiesta_il | ora_locale('%d/%m/%Y') }}: «{{ c.elim_motivo }}»</p>
+  {% endif %}
+
+  <h2>Verrà eliminato:</h2>
+  <ul class="el-lista">
+    <li>{{ ico('studio', size=18) }} La scheda del cliente{% if c.titolare %} ({{ c.titolare }}){% endif %}</li>
+    <li>{{ ico('radar', size=18) }} <b>{{ tutto.valutazioni|length }}</b> radiografi{{ 'a' if tutto.valutazioni|length == 1 else 'e' }}</li>
+    <li>{{ ico('preventivo', size=18) }} <b>{{ tutto.preventivi|length }}</b> preventiv{{ 'o' if tutto.preventivi|length == 1 else 'i' }}{% if tutto.preventivi %}: {% for p in tutto.preventivi %}{{ p.codice }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}</li>
+    <li>{{ ico('modifica', size=18) }} <b>{{ tutto.contratti|length }}</b> contratt{{ 'o' if tutto.contratti|length == 1 else 'i' }}{% set firmati = tutto.contratti|selectattr('stato', 'equalto', 'firmato')|list %}{% if firmati %} — <span class="nl-err">di cui {{ firmati|length }} firmat{{ 'o' if firmati|length == 1 else 'i' }}</span>{% endif %}</li>
+    <li>{{ ico('nota', size=18) }} <b>{{ tutto.attivita }}</b> voci di storia (chiamate, note, aperture)</li>
+    <li>{{ ico('mail', size=18) }} <b>{{ tutto.email }}</b> registrazioni di email inviate</li>
+  </ul>
+  {% if tutto.contratti|selectattr('stato', 'equalto', 'firmato')|list %}
+  <p class="el-avviso">{{ ico('x') }} Ci sono <b>contratti firmati</b>: prima di eliminarli assicurati di averne una copia (Contratti → Stampa / PDF).</p>
+  {% endif %}
+
+  <form method="post" class="el-form">
+    <label class="crm-spunta"><input type="checkbox" name="irreversibile" value="1" required> <span>Ho capito che l'eliminazione è <b>definitiva</b> e non si può annullare.</span></label>
+    <label>Per confermare scrivi <b>ELIMINA</b><input name="conferma" autocomplete="off" required pattern="[Ee][Ll][Ii][Mm][Ii][Nn][Aa]" placeholder="ELIMINA"></label>
+    <div class="azioni-riga">
+      <button class="btn el-btn" type="submit">{{ ico('cestino') }} Elimina definitivamente</button>
+      <a class="btn sec-btn" href="{{ url_for('contatto_scheda', cid=c.id) }}">Annulla</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

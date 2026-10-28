@@ -128,7 +128,7 @@
   </ol>
 </section>
 
-<section class="card">
+<section class="card" id="gestisci">
   <h2>{{ ico('pipeline') }} Gestisci</h2>
   {% if aperture_per %}<p class="meta">Aperture della scheda: {% for uid, n in aperture_per.items() %}{{ utenti[uid].nome if utenti.get(uid) else '—' }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
   <div class="azioni-riga">
@@ -148,10 +148,26 @@
       <button class="btn sec-btn piccolo" type="submit">{{ ico('sposta') }} Assegna</button>
     </form>
     {% endif %}
-    <form method="post" action="{{ url_for('contatto_elimina', cid=c.id) }}" onsubmit="return confirm('Eliminare il contatto e tutta la sua storia?')">
-      <button class="btn secondario piccolo" type="submit">{{ ico('cestino') }} Elimina</button>
-    </form>
+    {% if utente.is_admin %}
+    <a class="btn secondario piccolo" href="{{ url_for('contatto_elimina', cid=c.id) }}">{{ ico('cestino') }} Elimina la scheda e tutto ciò che è collegato</a>
+    {% endif %}
   </div>
+  {% if c.elim_richiesta_il %}
+  <div class="el-richiesta">
+    {{ ico('cestino') }} <span><b>Eliminazione richiesta</b> da {{ utenti[c.elim_richiesta_da].nome if utenti.get(c.elim_richiesta_da) else '—' }} il {{ c.elim_richiesta_il | ora_locale('%d/%m/%Y') }}: «{{ c.elim_motivo }}». {% if not utente.is_admin %}In attesa dell'amministratore.{% endif %}</span>
+    {% if utente.is_admin %}
+    <form method="post" action="{{ url_for('contatto_rifiuta_eliminazione', cid=c.id) }}"><input type="hidden" name="torna" value="{{ url_for('contatto_scheda', cid=c.id) }}"><button class="btn sec-btn piccolo" type="submit">Rifiuta la richiesta</button></form>
+    {% endif %}
+  </div>
+  {% elif not utente.is_admin %}
+  <details class="gestisci"><summary>{{ ico('cestino', size=14) }} Chiedi all'amministratore di eliminare questa scheda</summary>
+    <form method="post" action="{{ url_for('contatto_richiedi_eliminazione', cid=c.id) }}" class="crm-nota">
+      <textarea name="motivo" rows="2" required placeholder="Perché va eliminata? (es. doppione, dati sbagliati, studio chiuso)"></textarea>
+      <button class="btn secondario piccolo" type="submit">Invia la richiesta</button>
+    </form>
+    <p class="meta">Solo l'amministratore può eliminare una scheda: insieme spariscono anche radiografie, preventivi e contratti del cliente.</p>
+  </details>
+  {% endif %}
 </section>
 
 <script>

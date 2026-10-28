@@ -167,6 +167,9 @@ class Contatto(db.Model):
     consenso_il = db.Column(db.DateTime)                     # quando è stato raccolto il consenso (UTC)
     consenso_da = db.Column(db.Integer)                      # utente che l'ha raccolto
     token_nl = db.Column(db.String(40), index=True)          # per il link di disiscrizione
+    elim_richiesta_da = db.Column(db.Integer)                # commerciale che ha chiesto all'admin di eliminare la scheda
+    elim_richiesta_il = db.Column(db.DateTime)
+    elim_motivo = db.Column(db.String(300))
     fonte = db.Column(db.String(30), default="manuale")      # manuale / import
     tentativi = db.Column(db.Integer, default=0)             # chiamate registrate
     aperture = db.Column(db.Integer, default=0)              # volte che la scheda è stata aperta
@@ -702,7 +705,10 @@ def admin():
         "preventivi": len(preventivi_tutti),
         "accettato": accettato_totale,
     }
-    return render_template("admin.html", in_attesa=in_attesa, account=account, conteggi=conteggi, kpi=kpi)
+    richieste_elim = Contatto.query.filter(Contatto.elim_richiesta_il.isnot(None)) \
+        .order_by(Contatto.elim_richiesta_il).all()
+    return render_template("admin.html", in_attesa=in_attesa, account=account, conteggi=conteggi, kpi=kpi,
+                           richieste_elim=richieste_elim, utenti_per_id={u.id: u for u in utenti})
 
 
 @app.post("/admin/utenti")
@@ -1283,6 +1289,13 @@ def preventivo_duplica(pid):
 @login_richiesto
 def preventivo_elimina(pid):
     p = preventivo_visibile(pid)
+    contratti = Contratto.query.filter_by(preventivo_id=p.id).all()
+    if any(k.stato == "firmato" for k in contratti) and not g.utente.is_admin:
+        flash("Questo preventivo ha un contratto firmato: può eliminarlo solo l'amministratore.")
+        return redirect(url_for("preventivo_modifica", pid=p.id))
+    for k in contratti:      # il contratto appartiene al preventivo: si elimina con lui
+        db.session.delete(k)
+    db.session.flush()
     db.session.delete(p)
     db.session.commit()
     flash(f"Preventivo {p.codice} eliminato.")

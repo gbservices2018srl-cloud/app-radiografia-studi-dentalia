@@ -159,7 +159,7 @@
 </form>
 
 {% if not nuovo %}
-<form method="post" action="{{ url_for('preventivo_elimina', pid=p.id) }}" onsubmit="return confirm('Eliminare definitivamente il preventivo {{ p.codice }}?')" class="no-print" style="margin-top:14px">
+<form method="post" action="{{ url_for('preventivo_elimina', pid=p.id) }}" onsubmit="return confirm('ATTENZIONE: operazione irreversibile.\n\nEliminare definitivamente il preventivo {{ p.codice }}{{ ' e il suo contratto' if contratto else '' }}? La scheda del cliente e gli altri preventivi restano.')" class="no-print" style="margin-top:14px">
   <button class="btn secondario" type="submit">Elimina preventivo</button>
 </form>
 {% endif %}

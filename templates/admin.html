@@ -18,6 +18,24 @@
   <a class="kpi-box" style="--s: var(--buono)" href="{{ url_for('preventivi', stato='accettato') }}"><small>Accettato (imponibile)</small><b>{{ kpi.accettato | euro }}</b></a>
 </div>
 
+{% if richieste_elim %}
+<section class="card richieste el-richieste">
+  <h2>Richieste di eliminazione schede <span class="pill critico">{{ richieste_elim | length }}</span></h2>
+  {% for c in richieste_elim %}
+  <div class="richiesta">
+    <div>
+      <strong><a href="{{ url_for('contatto_scheda', cid=c.id) }}">{{ c.studio }}</a></strong>
+      <p class="meta">Chiesta da {{ utenti_per_id[c.elim_richiesta_da].nome if utenti_per_id.get(c.elim_richiesta_da) else '—' }} il {{ c.elim_richiesta_il | ora_locale('%d/%m/%Y') }} · «{{ c.elim_motivo }}»</p>
+    </div>
+    <div class="azioni-riga">
+      <a class="btn secondario" href="{{ url_for('contatto_elimina', cid=c.id) }}">Rivedi ed elimina</a>
+      <form method="post" action="{{ url_for('contatto_rifiuta_eliminazione', cid=c.id) }}"><button class="btn sec-btn" type="submit">Rifiuta</button></form>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
 {% if in_attesa %}
 <section class="card richieste">
   <h2>Richieste di accesso da attivare <span class="pill medio">{{ in_attesa | length }}</span></h2>

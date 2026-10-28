@@ -94,7 +94,7 @@
 </section>
 
 {% if k.stato != 'firmato' or utente.is_admin %}
-<form method="post" action="{{ url_for('contratto_annulla', kid=k.id) }}" onsubmit="return confirm('Annullare il contratto {{ k.codice }}?')">
+<form method="post" action="{{ url_for('contratto_annulla', kid=k.id) }}" onsubmit="return confirm('ATTENZIONE: operazione irreversibile.\n\nAnnullare il contratto {{ k.codice }}? Non si potrà più firmare né riattivare.')">
   <button class="btn secondario piccolo" type="submit">{{ ico('x') }} Annulla contratto</button>
 </form>
 {% endif %}

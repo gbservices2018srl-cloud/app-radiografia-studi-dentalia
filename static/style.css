@@ -576,3 +576,18 @@ a.k-modo:hover { border-color: var(--oro); }
 .pv-btn-dati small { color: var(--c); font-weight: 600; font-size: .72rem; } .pv-btn-dati b { color: var(--c); }
 .pv-btn.s-grigio { opacity: .75; } .pv-btn.s-grigio .pv-btn-nome { text-decoration: line-through; }
 @media (max-width: 700px) { .kpi { grid-template-columns: repeat(2, 1fr); } .pv-testa { flex-wrap: wrap; } .pv-totali { text-align: left; width: 100%; } }
+
+/* ============ Eliminazioni ============ */
+.el-box { border: 2px solid var(--critico); }
+.el-testa { display: flex; gap: 14px; align-items: flex-start; }
+.el-testa h1 { font-size: 1.4rem; margin: 0 0 6px; }
+.el-ico { width: 56px; height: 56px; border-radius: 14px; background: #fdecec; color: var(--critico); display: flex; align-items: center; justify-content: center; flex: none; }
+.el-avviso { color: var(--critico); background: #fdecec; border-radius: 10px; padding: 10px 12px; }
+.el-lista { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 8px; }
+.el-lista li { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: var(--bg); border-radius: 10px; }
+.el-lista .ico { color: var(--critico); }
+.el-form { display: grid; gap: 12px; max-width: 520px; }
+.el-btn { background: var(--critico); } .el-btn:hover { background: #a61f1f; }
+.el-richiesta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #fdecec; color: var(--critico); }
+.el-richiesta span { flex: 1 1 240px; color: var(--testo); }
+.el-richieste { border: 2px solid #f3c1c1; }
