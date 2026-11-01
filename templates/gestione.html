@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Social{% endblock %}
+{% block content %}
+{% include "_gestione_testa.html" %}
+
+<div class="azioni-riga soc-azioni">
+  <a class="btn oro" href="{{ url_for('social_post') }}">{{ ico('piu') }} Nuovo post</a>
+  <form method="post" action="{{ url_for('social_agente_ora') }}">
+    <button class="btn sec-btn" type="submit" {{ 'disabled' if bozze >= max_bozze }} title="L'agente prepara subito una bozza dal piano editoriale">{{ ico('agente') }} Fammi una bozza adesso</button>
+  </form>
+</div>
+
+<nav class="soc-filtri">
+  {% for k, et in [('attesa', 'Da approvare'), ('programmati', 'Programmati'), ('pubblicati', 'Pubblicati'), ('scartati', 'Scartati')] %}
+  <a href="{{ url_for('gestione', vista=k) }}" class="{{ 'on' if vista == k }}">{{ et }}
+    {%- set n = (conta.get('bozza', 0) + conta.get('errore', 0)) if k == 'attesa' else (conta.get('approvato', 0) + conta.get('in_pubblicazione', 0)) if k == 'programmati' else conta.get('pubblicato', 0) if k == 'pubblicati' else conta.get('scartato', 0) %}
+    <small>{{ n }}</small></a>
+  {% endfor %}
+</nav>
+
+{% if not posts %}
+<div class="card soc-vuoto">
+  <span class="soc-vuoto-ico">{{ ico('foto', size=40) }}</span>
+  {% if vista == 'attesa' %}
+  <p><b>Nessuna bozza da approvare.</b><br>{% if imp.soc_agente %}L'agente ne preparerà una nei prossimi giorni.{% else %}Accendi l'agente oppure chiedi una bozza adesso.{% endif %}</p>
+  {% elif vista == 'programmati' %}<p>Nessun post programmato. Approva una bozza per metterla in calendario.</p>
+  {% elif vista == 'pubblicati' %}<p>Non è ancora stato pubblicato niente.</p>
+  {% else %}<p>Nessun post scartato.</p>{% endif %}
+</div>
+{% else %}
+<div class="soc-griglia">
+  {% for p in posts %}
+  {% set es = esiti_di(p) %}
+  <a class="soc-post" href="{{ url_for('social_post', pid=p.id) }}">
+    {% if media.get(p.media_id) %}<img src="{{ url_for('social_media', token=media[p.media_id].token) }}" alt="" loading="lazy">{% else %}<span class="soc-segnaposto">{{ ico('foto', size=36) }}</span>{% endif %}
+    <span class="soc-post-info">
+      <span class="soc-stato st-{{ p.stato }}">{{ stati[p.stato] }}</span>
+      <b>{{ p.titolo | senza_asterischi | truncate(70) }}</b>
+      <small>{{ ico('calendario', size=13) }}
+        {% if p.stato == 'pubblicato' and p.pubblicato_il %}{{ p.pubblicato_il | ora_locale('%d/%m/%Y %H:%M') }}{% elif p.data_prevista %}{{ p.data_prevista | ora_locale('%d/%m/%Y %H:%M') }}{% endif %}
+        · {% for c in canali_di(p) %}{{ ico(c, size=13) }}{% endfor %}
+        {% if p.creato_da is none %}· {{ ico('agente', size=13) }} agente{% endif %}
+      </small>
+      {% if p.errore %}<small class="nl-err">{{ p.errore | truncate(110) }}</small>{% endif %}
+    </span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

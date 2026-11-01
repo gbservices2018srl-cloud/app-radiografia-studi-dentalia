@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Collegamenti · Social{% endblock %}
+{% block content %}
+{% include "_gestione_testa.html" %}
+<p class="meta">Finché un canale non è collegato, i post approvati restano «da pubblicare a mano»: nel post trovi «Scarica immagine» e «Copia testo».</p>
+
+<section class="card soc-collega">
+  <div class="soc-collega-testa">
+    <span class="soc-ico-canale ig">{{ ico('instagram', size=28) }}</span>
+    <div><h2>Instagram</h2>
+      {% if ig %}<p class="nl-ok">{{ ico('ok') }} Collegato: <b>@{{ imp.soc_ig_nome }}</b> <small class="meta">(ID {{ imp.soc_ig_user }}, token {{ nascondi(imp.soc_ig_token) }}, via {{ 'Facebook' if imp.soc_ig_modo == 'facebook' else 'Instagram' }})</small></p>
+      {% else %}<p class="meta">Non collegato.</p>{% endif %}
+    </div>
+  </div>
+  <details {{ 'open' if not ig }}>
+    <summary>Come ottenere il token (una volta sola)</summary>
+    <ol class="soc-passi">
+      <li>L'account Instagram deve essere <b>professionale</b> (Aziendale o Creator): app Instagram → Impostazioni → Tipo di account.</li>
+      <li>Vai su <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a> → <b>Crea app</b> → caso d'uso «Gestisci messaggi e contenuti su Instagram».</li>
+      <li>Nell'app: <b>Instagram → Configurazione API con login di Instagram</b> → «Aggiungi account» e accedi con l'account Dentalia.</li>
+      <li>Premi <b>Genera token</b> accanto all'account, copia il token e incollalo qui sotto. Il token generato da lì dura 60 giorni e si rinnova da solo se lo usi.</li>
+    </ol>
+    <p class="meta">In alternativa funziona anche un token della Pagina Facebook collegata all'Instagram (con il permesso <code>instagram_content_publish</code>): l'app lo riconosce da sola.</p>
+  </details>
+  <form method="post" class="griglia soc-form-collega">
+    <input type="hidden" name="azione" value="instagram">
+    <label>Token di accesso<input name="token" autocomplete="off" placeholder="{{ 'lascia vuoto per riverificare quello salvato' if ig else 'incolla qui il token' }}"></label>
+    <label>ID account Instagram <small>(facoltativo)</small><input name="user_id" value="{{ imp.soc_ig_user or '' }}"></label>
+    <div class="azioni-riga"><button class="btn oro" type="submit">{{ ico('collega') }} {{ 'Verifica di nuovo' if ig else 'Collega e verifica' }}</button></div>
+  </form>
+  {% if ig %}<form method="post" onsubmit="return confirm('Scollegare Instagram?')"><input type="hidden" name="azione" value="scollega_instagram"><button class="btn sec-btn piccolo">{{ ico('x') }} Scollega</button></form>{% endif %}
+</section>
+
+<section class="card soc-collega">
+  <div class="soc-collega-testa">
+    <span class="soc-ico-canale li">{{ ico('linkedin', size=28) }}</span>
+    <div><h2>LinkedIn — pagina aziendale</h2>
+      {% if li %}<p class="nl-ok">{{ ico('ok') }} Collegata: <b>{{ imp.soc_li_nome }}</b> <small class="meta">(organizzazione {{ imp.soc_li_org }}, token {{ nascondi(imp.soc_li_token) }}{% if li_scade is not none %}, scade tra {{ li_scade }} giorni{% endif %})</small></p>
+      {% else %}<p class="meta">Non collegata.</p>{% endif %}
+    </div>
+  </div>
+  <details {{ 'open' if not li }}>
+    <summary>Come ottenere il token (una volta, poi ogni 60 giorni)</summary>
+    <ol class="soc-passi">
+      <li>Vai su <a href="https://www.linkedin.com/developers/apps" target="_blank" rel="noopener">linkedin.com/developers/apps</a> → <b>Create app</b>; come «LinkedIn Page» indica la pagina Dentalia (devi esserne amministratore) e verifica l'app dalla pagina.</li>
+      <li>Nella scheda <b>Products</b> richiedi <b>Community Management API</b> (LinkedIn la approva in qualche giorno).</li>
+      <li>Approvata: <b>Docs and tools → OAuth Token Tools → Create token</b>, spunta <code>w_organization_social</code> e <code>r_organization_social</code> (e <code>rw_organization_admin</code>), accedi e copia il token.</li>
+      <li>Incollalo qui sotto. L'ID della pagina è il numero nell'indirizzo della pagina admin (linkedin.com/company/<b>12345678</b>/admin): se lo lasci vuoto lo cerco io.</li>
+    </ol>
+  </details>
+  <form method="post" class="griglia soc-form-collega">
+    <input type="hidden" name="azione" value="linkedin">
+    <label>Token di accesso<input name="token" autocomplete="off" placeholder="{{ 'lascia vuoto per riverificare quello salvato' if li else 'incolla qui il token' }}"></label>
+    <label>ID pagina <small>(facoltativo)</small><input name="org" value="{{ imp.soc_li_org or '' }}" inputmode="numeric"></label>
+    <div class="azioni-riga"><button class="btn oro" type="submit">{{ ico('collega') }} {{ 'Verifica di nuovo' if li else 'Collega e verifica' }}</button></div>
+  </form>
+  {% if li %}<form method="post" onsubmit="return confirm('Scollegare LinkedIn?')"><input type="hidden" name="azione" value="scollega_linkedin"><button class="btn sec-btn piccolo">{{ ico('x') }} Scollega</button></form>{% endif %}
+  <p class="meta"><small>Versione API LinkedIn: {{ li_versione }} (variabile LINKEDIN_VERSION su Render, se un giorno servisse aggiornarla).</small></p>
+</section>
+{% endblock %}

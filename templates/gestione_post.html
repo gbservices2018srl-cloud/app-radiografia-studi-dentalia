@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}{{ 'Post' if p.id else 'Nuovo post' }} · Social{% endblock %}
+{% block content %}
+{% include "_gestione_testa.html" %}
+<p class="meta"><a href="{{ url_for('gestione') }}">← Tutti i post</a></p>
+
+{% set bloccato = p.stato in ('pubblicato', 'in_pubblicazione') %}
+<div class="soc-stato-riga">
+  <span class="soc-stato st-{{ p.stato }}">{{ stati[p.stato] if p.id else 'Nuovo' }}</span>
+  {% if p.id and p.creato_da is none %}<span class="meta">{{ ico('agente', size=14) }} preparato dall'agente{% if p.tema %} · tema «{{ p.tema }}»{% endif %}</span>{% endif %}
+  {% if p.stato == 'approvato' and p.data_prevista %}<span class="meta">{{ ico('calendario', size=14) }} esce il {{ p.data_prevista | ora_locale }}</span>{% endif %}
+</div>
+{% if p.errore %}<p class="avviso nl-err">{{ ico('x') }} {{ p.errore }}</p>{% endif %}
+{% if esiti %}
+<p class="soc-esiti">
+  {% for c, e in esiti.items() %}
+  <span class="soc-canale {{ 'on' if e.ok }}">{{ ico(c, size=15) }} {{ canali_nomi[c] }}:
+    {% if e.ok %}{% if e.link %}<a href="{{ e.link }}" target="_blank" rel="noopener">pubblicato ↗</a>{% else %}pubblicato{% endif %}{% if e.manuale %} (a mano){% endif %}{% else %}{{ e.errore }}{% endif %}
+  </span>
+  {% endfor %}
+</p>
+{% endif %}
+
+<div class="soc-editor">
+  <form method="post" class="card soc-form" id="form-post" action="{{ url_for('social_post', pid=p.id) if p.id else url_for('social_post') }}">
+    <fieldset {{ 'disabled' if bloccato }}>
+    <h2>{{ ico('foto', size=20) }} Grafica</h2>
+    <div class="griglia">
+      <label>Modello<select name="scena" data-anteprima>
+        {% for k, et in scene.items() %}<option value="{{ k }}" {{ 'selected' if p.scena == k }}>{{ et }}</option>{% endfor %}
+      </select></label>
+      <label>Tema <small>(scritto in piccolo in alto)</small><input name="tema" list="temi" value="{{ p.tema or '' }}" data-anteprima>
+        <datalist id="temi">{% for t in temi %}<option value="{{ t }}">{% endfor %}</datalist></label>
+    </div>
+    <label>Frase grande <small>— metti tra *asterischi* le parole da colorare in oro</small>
+      <textarea name="titolo" rows="2" data-anteprima>{{ p.titolo or '' }}</textarea></label>
+    <label class="campo-scena" data-scene="titolo foto domanda cta">Frase piccola sotto <small>(facoltativa)</small>
+      <textarea name="testo" rows="2" data-anteprima>{{ p.testo or '' }}</textarea></label>
+    <label class="campo-scena" data-scene="lista cta">Punti dell'elenco, uno per riga <small>(per «Invito con pulsante»: la scritta del pulsante)</small>
+      <textarea name="punti" rows="4" data-anteprima>{{ p.punti or '' }}</textarea></label>
+    <div class="campo-scena" data-scene="foto immagine">
+      <p class="meta">Foto</p>
+      <div class="soc-scegli-foto">
+        {% for f in foto_base %}
+        <label><input type="radio" name="foto" value="base:{{ f }}" {{ 'checked' if p.foto == 'base:' ~ f }} data-anteprima><img src="{{ url_for('static', filename='social/foto-base/' ~ f) }}" alt=""></label>
+        {% endfor %}
+        {% for f in foto_archivio %}
+        <label><input type="radio" name="foto" value="m:{{ f.id }}" {{ 'checked' if p.foto == 'm:' ~ f.id }} data-anteprima><img src="{{ url_for('social_media', token=f.token) }}" alt=""></label>
+        {% endfor %}
+        <a class="soc-foto-piu" href="{{ url_for('social_foto') }}">{{ ico('carica', size=22) }}<small>Carica</small></a>
+      </div>
+    </div>
+
+    <h2 style="margin-top:22px">{{ ico('nota', size=20) }} Testo del post</h2>
+    <label>Didascalia <small>(<span id="conta">0</span> caratteri · Instagram max 2.200, LinkedIn max 3.000)</small>
+      <textarea name="didascalia" rows="12" id="didascalia">{{ p.didascalia or '' }}</textarea></label>
+
+    <h2 style="margin-top:22px">{{ ico('calendario', size=20) }} Dove e quando</h2>
+    <div class="soc-canali-scelta">
+      {% set scelti = canali_di(p) %}
+      {% for c, nome in canali_nomi.items() %}
+      <label class="crm-spunta"><input type="checkbox" name="canale_{{ c }}" value="1" {{ 'checked' if c in scelti }}> <span>{{ ico(c, size=16) }} {{ nome }}
+        {% if (c == 'instagram' and not ig) or (c == 'linkedin' and not li) %}<small>(non collegato: a mano)</small>{% endif %}</span></label>
+      {% endfor %}
+    </div>
+    <label>Data e ora di uscita (ora italiana)<input type="datetime-local" name="data_prevista" value="{{ data_locale }}"></label>
+    </fieldset>
+
+    {% if not bloccato %}
+    <div class="azioni-riga" style="margin-top:16px">
+      <button class="btn oro" name="azione" value="approva">{{ ico('ok') }} {{ 'Salva e approva' if p.stato != 'approvato' else 'Salva (resta programmato)' }}</button>
+      <button class="btn sec-btn" name="azione" value="salva">{{ ico('nota') }} Salva bozza</button>
+      {% if ig or li %}<button class="btn sec-btn" name="azione" value="pubblica" onclick="return confirm('Pubblicare subito sui canali scelti?')">{{ ico('invia') }} Pubblica adesso</button>{% endif %}
+    </div>
+    {% endif %}
+  </form>
+
+  <aside class="soc-anteprima">
+    <div class="soc-telefono">
+      <img id="anteprima" src="{{ url_for('social_media', token=media.token) if media else '' }}" alt="Anteprima della grafica" {{ 'hidden' if not media }}>
+      {% if not media %}<span class="soc-segnaposto" id="segnaposto">{{ ico('foto', size=40) }}<small>L'anteprima appare mentre scrivi</small></span>{% endif %}
+    </div>
+    {% if p.id %}
+    <div class="azioni-riga soc-mano">
+      {% if media %}<a class="btn sec-btn piccolo" href="{{ url_for('social_scarica', pid=p.id) }}">{{ ico('scarica') }} Scarica immagine</a>{% endif %}
+      <button class="btn sec-btn piccolo" type="button" id="copia">{{ ico('nota') }} Copia testo</button>
+    </div>
+    <div class="soc-stati-form">
+      {% if p.stato == 'approvato' %}
+      <form method="post" action="{{ url_for('social_post_stato', pid=p.id) }}"><button class="btn sec-btn piccolo" name="azione" value="bozza">Rimetti in bozza</button></form>
+      {% endif %}
+      {% if p.stato == 'errore' %}
+      <form method="post" action="{{ url_for('social_post_stato', pid=p.id) }}"><button class="btn piccolo" name="azione" value="riprova">{{ ico('richiama') }} Riprova a pubblicare</button></form>
+      {% endif %}
+      {% if p.stato not in ('pubblicato', 'scartato') %}
+      <form method="post" action="{{ url_for('social_post_stato', pid=p.id) }}" onsubmit="return confirm('L\'hai già pubblicato tu a mano su tutti i canali scelti?')"><button class="btn sec-btn piccolo" name="azione" value="manuale">{{ ico('ok') }} L'ho pubblicato a mano</button></form>
+      <form method="post" action="{{ url_for('social_post_stato', pid=p.id) }}"><button class="btn sec-btn piccolo" name="azione" value="scarta">{{ ico('x') }} Scarta</button></form>
+      {% endif %}
+      {% if p.stato != 'pubblicato' %}
+      <form method="post" action="{{ url_for('social_post_stato', pid=p.id) }}" onsubmit="return confirm('Eliminare definitivamente questo post?')"><button class="btn secondario piccolo" name="azione" value="elimina">{{ ico('cestino') }} Elimina</button></form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('form-post');
+  var img = document.getElementById('anteprima');
+  var did = document.getElementById('didascalia');
+  var conta = document.getElementById('conta');
+  var timer = null;
+  function contaCaratteri() { conta.textContent = did.value.length; conta.style.color = did.value.length > 2200 ? '#c62828' : ''; }
+  function mostraCampi() {
+    var scena = form.scena.value;
+    form.querySelectorAll('.campo-scena').forEach(function (el) {
+      el.hidden = el.dataset.scene.split(' ').indexOf(scena) < 0;
+    });
+  }
+  function aggiorna() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var dati = new FormData(form);
+      fetch('{{ url_for("social_anteprima") }}', { method: 'POST', body: dati, credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.blob() : null; })
+        .then(function (b) {
+          if (!b) return;
+          img.src = URL.createObjectURL(b); img.hidden = false;
+          var s = document.getElementById('segnaposto'); if (s) s.remove();
+        });
+    }, 500);
+  }
+  form.querySelectorAll('[data-anteprima]').forEach(function (el) {
+    el.addEventListener('input', aggiorna); el.addEventListener('change', function () { mostraCampi(); aggiorna(); });
+  });
+  did.addEventListener('input', contaCaratteri);
+  var copia = document.getElementById('copia');
+  if (copia) copia.addEventListener('click', function () {
+    navigator.clipboard.writeText(did.value).then(function () { copia.textContent = 'Copiato ✓'; });
+  });
+  mostraCampi(); contaCaratteri();
+  {% if not media %}if (form.titolo.value) aggiorna();{% endif %}
+})();
+</script>
+{% endblock %}

@@ -20,6 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import app as m  # noqa: E402
 
 
+def db_get(modello, ident):
+    return m.db.session.get(modello, ident)
+
+
 def login(email, pw):
     c = m.app.test_client()
     c.post("/login", data={"email": email, "password": pw})
@@ -796,6 +800,116 @@ class TestApp(unittest.TestCase):
             self.assertEqual((c.studio, c.titolare, c.stato), ("Studio Senza Scheda", "Dott. Solo", "presentato"))
             m.collega_radiografie_orfane()   # nessuna orfana: non crea doppioni
             self.assertEqual(m.Contatto.query.filter_by(studio="Studio Senza Scheda").count(), 1)
+
+    # ------------------------------------------------------------------ social (/gestione)
+    def test_36_social_solo_admin_e_pagine(self):
+        for url in ("/gestione", "/gestione/post/nuovo", "/gestione/foto", "/gestione/idee", "/gestione/collegamenti",
+                    "/gestione/agente"):
+            self.assertEqual(self.admin.get(url).status_code, 200, url)
+            self.assertNotEqual(self.marco.get(url).status_code, 200, url)
+
+    def test_37_social_grafiche_di_tutti_i_modelli(self):
+        import grafica_social
+        for scena in grafica_social.SCENE:
+            jpg = grafica_social.genera(scena, titolo="Il denaro *già guadagnato*?", testo="Prova", punti=["Uno", "Due"],
+                                        tema="Numeri", foto="foto-reception.jpg")
+            self.assertTrue(jpg.startswith(b"\xff\xd8"), scena)
+            from PIL import Image
+            self.assertEqual(Image.open(io.BytesIO(jpg)).size, (1080, 1350))
+        r = self.admin.post("/gestione/anteprima", data={"scena": "lista", "titolo": "Tre *cose*", "punti": "a\nb"})
+        self.assertEqual(r.mimetype, "image/jpeg")
+
+    def test_38_social_bozza_approva_pubblica(self):
+        import social
+        r = self.admin.post("/gestione/post/nuovo", data={
+            "scena": "titolo", "tema": "Numeri", "titolo": "Conosci i *tuoi numeri*", "didascalia": "Testo #Dentalia",
+            "canale_instagram": "1", "canale_linkedin": "1", "data_prevista": "2026-01-05T09:30", "azione": "approva"})
+        self.assertEqual(r.status_code, 302)
+        with m.app.app_context():
+            p = m.SocialPost.query.filter_by(titolo="Conosci i *tuoi numeri*").one()
+            self.assertEqual(p.stato, "approvato")
+            media = db_get(m.SocialMedia, p.media_id)
+            pid, token = p.id, media.token
+            # nessun canale collegato: il giro non pubblica nulla, resta da fare a mano
+            self.assertEqual(social.giro_pubblicazione(), 0)
+        img = m.app.test_client().get(f"/m/{token}.jpg")       # pubblica, senza login (serve a Instagram)
+        self.assertEqual((img.status_code, img.mimetype), (200, "image/jpeg"))
+        self.assertEqual(m.app.test_client().get("/m/sbagliato.jpg").status_code, 404)
+        self.assertEqual(self.admin.get(f"/gestione/post/{pid}/immagine").status_code, 200)
+        # collego i due canali (in test nessuna chiamata esterna) e il giro pubblica
+        self.admin.post("/gestione/collegamenti", data={"azione": "instagram", "token": "tok-ig"})
+        self.admin.post("/gestione/collegamenti", data={"azione": "linkedin", "token": "tok-li", "org": "555"})
+        m.app.config["SOCIAL_PUBBLICATI"] = []
+        with m.app.app_context():
+            self.assertEqual(social.giro_pubblicazione(), 1)
+            p = db_get(m.SocialPost, pid)
+            self.assertEqual(p.stato, "pubblicato")
+            self.assertEqual(sorted(json.loads(p.esiti)), ["instagram", "linkedin"])
+            self.assertEqual(social.giro_pubblicazione(), 0)   # mai due volte
+        self.assertEqual(sorted(c for c, _ in m.app.config["SOCIAL_PUBBLICATI"]), ["instagram", "linkedin"])
+        # un post pubblicato non si modifica né si elimina
+        self.admin.post(f"/gestione/post/{pid}/stato", data={"azione": "elimina"})
+        with m.app.app_context():
+            self.assertIsNotNone(db_get(m.SocialPost, pid))
+        self.admin.post("/gestione/collegamenti", data={"azione": "scollega_instagram"})
+        self.admin.post("/gestione/collegamenti", data={"azione": "scollega_linkedin"})
+
+    def test_39_social_agente_max_due_bozze_e_avviso(self):
+        import social
+        with m.app.app_context():
+            m.SocialPost.query.filter_by(stato="bozza").delete()
+            imp = m.impostazioni()
+            imp.soc_agente, imp.soc_ultimo, imp.soc_avviso = True, None, True
+            m.db.session.commit()
+            m.app.config["EMAIL_INVIATE"] = []
+            p1 = social.crea_bozza_agente()
+            self.assertIsNotNone(p1)
+            self.assertEqual(p1.stato, "bozza")
+            self.assertIsNone(p1.creato_da)
+            self.assertIsNotNone(p1.media_id)
+            self.assertTrue(p1.didascalia)
+            self.assertIsNone(social.crea_bozza_agente())          # non sono passati 3 giorni
+            p2 = social.crea_bozza_agente(forza=True)
+            self.assertNotEqual(p1.idea, p2.idea)
+            self.assertNotEqual(p1.tema, p2.tema)
+            self.assertIsNone(social.crea_bozza_agente(forza=True))  # già 2 bozze in attesa
+            self.assertTrue(p2.data_prevista > p1.data_prevista)
+            from zoneinfo import ZoneInfo
+            self.assertLess(p2.data_prevista.replace(tzinfo=ZoneInfo("UTC")).astimezone(social.ROMA).weekday(), 5)
+            pid1 = p1.id
+            self.assertTrue(any("bozza" in e["Subject"] for e in m.app.config["EMAIL_INVIATE"]))
+            imp.soc_agente = False
+            m.db.session.commit()
+        r = self.admin.post(f"/gestione/post/{pid1}/stato", data={"azione": "scarta"})
+        self.assertEqual(r.status_code, 302)
+        r = self.admin.post("/gestione/agente/ora", data={"idea": "net-reception"})
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/gestione/post/", r.location)
+        pagina = self.admin.get("/gestione").get_data(as_text=True)
+        self.assertIn("Da approvare", pagina)
+
+    def test_40_social_foto_e_idee(self):
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", (300, 200), (10, 80, 140)).save(buf, "PNG")
+        buf.seek(0)
+        r = self.admin.post("/gestione/foto", data={"foto": (buf, "team.png")}, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 302)
+        with m.app.app_context():
+            f = m.SocialMedia.query.filter_by(archivio=True, nome="team.png").one()
+            fid = f.id
+        r = self.admin.post("/gestione/post/nuovo", data={"scena": "immagine", "titolo": "", "foto": f"m:{fid}",
+                                                          "didascalia": "Il team", "azione": "salva"})
+        self.assertEqual(r.status_code, 302)
+        self.admin.post("/gestione/idee", data={"azione": "aggiungi", "tema": "Il network", "scena": "titolo",
+                                                "titolo": "Idea *mia*", "didascalia": "Testo idea"})
+        self.assertIn("Idea mia", self.admin.get("/gestione/idee").get_data(as_text=True))
+        import social
+        testo = social.testo_linkedin("Ciao (prova) #Dentalia e @tutti")
+        self.assertIn("\\(prova\\)", testo)
+        self.assertIn("{hashtag|\\#|Dentalia}", testo)
+        self.assertIn("\\@tutti", testo)
+
 
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():

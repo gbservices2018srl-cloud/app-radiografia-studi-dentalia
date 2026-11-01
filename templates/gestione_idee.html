@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Idee e linea · Social{% endblock %}
+{% block content %}
+{% include "_gestione_testa.html" %}
+
+<form method="post" class="card">
+  <input type="hidden" name="azione" value="linea">
+  <h2>{{ ico('stella', size=20) }} Linea editoriale</h2>
+  <p class="meta">Il promemoria di come parliamo sui social: a chi, con che tono, cosa evitare. Vale per te e per chi scrive i post.</p>
+  <textarea name="linea" rows="8">{{ linea }}</textarea>
+  <button class="btn" type="submit" style="margin-top:10px">{{ ico('ok') }} Salva</button>
+</form>
+
+<div class="card">
+  <h2>{{ ico('idea', size=20) }} Piano editoriale <small class="meta">({{ idee|length }} idee)</small></h2>
+  <p class="meta">L'agente prende da qui, a rotazione per tema, un'idea non ancora usata.
+    {% if prossima %}La prossima sarà: <b>{{ prossima.titolo | senza_asterischi }}</b>.{% endif %}</p>
+  <div class="soc-idee">
+    {% for i in idee %}
+    <div class="soc-idea">
+      <span class="soc-tema">{{ i.tema }}</span>
+      <b>{{ i.titolo | senza_asterischi }}</b>
+      <small class="meta">{{ scene.get(i.scena, i.scena) }}{% if usate.get(i.id) %} · usata {{ usate[i.id] }} volt{{ 'a' if usate[i.id] == 1 else 'e' }}{% endif %}{% if i.propria %} · tua{% endif %}</small>
+      <div class="azioni-riga">
+        <form method="post" action="{{ url_for('social_agente_ora') }}"><input type="hidden" name="idea" value="{{ i.id }}"><button class="btn sec-btn piccolo">{{ ico('piu') }} Crea bozza</button></form>
+        {% if i.propria %}<form method="post" onsubmit="return confirm('Togliere questa idea?')"><input type="hidden" name="azione" value="togli"><input type="hidden" name="id" value="{{ i.id }}"><button class="btn-icona" title="Togli">{{ ico('cestino', size=16) }}</button></form>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<form method="post" class="card">
+  <input type="hidden" name="azione" value="aggiungi">
+  <h2>{{ ico('piu', size=20) }} Aggiungi un'idea</h2>
+  <div class="griglia">
+    <label>Tema<input name="tema" list="temi2"><datalist id="temi2">{% for t in temi %}<option value="{{ t }}">{% endfor %}</datalist></label>
+    <label>Modello grafica<select name="scena">{% for k, et in scene.items() %}<option value="{{ k }}">{{ et }}</option>{% endfor %}</select></label>
+    <label>Foto <small>(per i modelli con foto)</small><select name="foto"><option value="">—</option>{% for f in foto_base %}<option value="base:{{ f }}">{{ f }}</option>{% endfor %}</select></label>
+  </div>
+  <label>Frase grande <small>(*parole in oro*)</small><input name="titolo" required></label>
+  <label>Frase piccola <small>(facoltativa)</small><input name="testo"></label>
+  <label>Punti (uno per riga, per l'elenco)<textarea name="punti" rows="3"></textarea></label>
+  <label>Didascalia del post<textarea name="didascalia" rows="6" required></textarea></label>
+  <button class="btn oro" type="submit" style="margin-top:10px">{{ ico('piu') }} Aggiungi al piano</button>
+</form>
+{% endblock %}

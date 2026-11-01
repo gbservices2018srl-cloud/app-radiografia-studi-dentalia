@@ -144,6 +144,22 @@ class Impostazioni(db.Model):
     aff_voci = db.Column(db.Text)       # una voce per riga
     seq_attiva = db.Column(db.Boolean)  # sequenza email automatica accesa (spenta finché l'admin non la attiva)
     contratto_testo = db.Column(db.Text)  # modello del contratto di affiliazione con i {segnaposto}; vuoto = bozza provvisoria
+    # social (/gestione): linea editoriale, collegamenti, agente
+    soc_linea = db.Column(db.Text)
+    soc_idee = db.Column(db.Text)            # JSON: idee aggiunte dall'admin (oltre a social_piano.IDEE)
+    soc_ig_user = db.Column(db.String(40))
+    soc_ig_nome = db.Column(db.String(120))
+    soc_ig_token = db.Column(db.Text)
+    soc_ig_modo = db.Column(db.String(20))   # "instagram" (graph.instagram.com) o "facebook" (graph.facebook.com)
+    soc_li_org = db.Column(db.String(40))
+    soc_li_nome = db.Column(db.String(200))
+    soc_li_token = db.Column(db.Text)
+    soc_li_scade = db.Column(db.DateTime)
+    soc_agente = db.Column(db.Boolean)
+    soc_ogni = db.Column(db.Integer)         # giorni tra una bozza e l'altra (default 3)
+    soc_ora = db.Column(db.String(5))        # ora di pubblicazione, es. "09:30" (ora italiana)
+    soc_ultimo = db.Column(db.DateTime)      # ultima bozza creata dall'agente
+    soc_avviso = db.Column(db.Boolean)       # email all'admin quando c'è una bozza da approvare
 
 
 class Contatto(db.Model):
@@ -291,6 +307,41 @@ class SequenzaInvio(db.Model):
     stato = db.Column(db.String(20), default="in_invio")    # in_invio, inviata, errore
     errore = db.Column(db.String(300))
     inviata_il = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SocialPost(db.Model):
+    """Post per Instagram / LinkedIn: bozza (scritta dall'agente o a mano) -> approvato -> pubblicato all'ora prevista."""
+    id = db.Column(db.Integer, primary_key=True)
+    stato = db.Column(db.String(20), default="bozza", index=True)  # bozza, approvato, in_pubblicazione, pubblicato, errore, scartato
+    idea = db.Column(db.String(60))          # id dell'idea del piano editoriale da cui nasce (per non ripeterla)
+    tema = db.Column(db.String(80))
+    scena = db.Column(db.String(20), default="titolo")   # modello della grafica (grafica_social.SCENE)
+    titolo = db.Column(db.String(300))
+    testo = db.Column(db.Text)
+    punti = db.Column(db.Text)               # una voce per riga (scena «lista»), etichetta del pulsante (scena «cta»)
+    foto = db.Column(db.String(80))          # "base:foto-reception.jpg" oppure "m:<id SocialMedia>"
+    didascalia = db.Column(db.Text)
+    canali = db.Column(db.String(60), default="instagram,linkedin")
+    data_prevista = db.Column(db.DateTime, index=True)   # UTC
+    media_id = db.Column(db.Integer)         # immagine pronta (SocialMedia)
+    esiti = db.Column(db.Text)               # JSON {canale: {"ok": bool, "id": ..., "link": ..., "errore": ...}}
+    errore = db.Column(db.String(500))
+    creato_da = db.Column(db.Integer)        # utente; vuoto = agente automatico
+    creato_il = db.Column(db.DateTime, default=datetime.utcnow)
+    approvato_il = db.Column(db.DateTime)
+    pubblicato_il = db.Column(db.DateTime)
+
+
+class SocialMedia(db.Model):
+    """Immagine salvata nel database: grafiche dei post e archivio foto. Servita pubblicamente da /m/<token>.jpg
+    (Instagram scarica l'immagine da un indirizzo pubblico)."""
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(40), unique=True, nullable=False)
+    tipo = db.Column(db.String(40), default="image/jpeg")
+    dati = db.Column(db.LargeBinary, nullable=False)
+    nome = db.Column(db.String(200))
+    archivio = db.Column(db.Boolean, default=False)   # True = foto caricata nell'archivio, False = grafica di un post
+    creato_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Questionario(db.Model):
@@ -1537,6 +1588,7 @@ import kpi  # noqa: E402,F401  (pannello KPI)
 import newsletter  # noqa: E402,F401  (newsletter: consenso, invio con la casella SMTP, disiscrizione)
 import sequenza  # noqa: E402,F401  (funnel: sequenza email automatica dopo il consenso)
 import contratti  # noqa: E402,F401  (contratto di affiliazione: dati, firma col dito o via link, stampa)
+import social  # noqa: E402,F401  (/gestione: post social, agente ogni 3 giorni, pubblicazione Instagram/LinkedIn)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

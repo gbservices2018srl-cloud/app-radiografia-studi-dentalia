@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Foto · Social{% endblock %}
+{% block content %}
+{% include "_gestione_testa.html" %}
+
+<form method="post" enctype="multipart/form-data" class="card soc-carica">
+  <span class="nl-avviso-ico">{{ ico('carica', size=26) }}</span>
+  <div>
+    <h2>Carica foto</h2>
+    <p class="meta">Foto dello studio, del team, degli eventi. Si possono scegliere più file insieme. Niente foto di pazienti senza consenso scritto.</p>
+    <input type="file" name="foto" accept="image/*" multiple required>
+    <button class="btn oro" type="submit" style="margin-top:10px">{{ ico('carica') }} Carica</button>
+  </div>
+</form>
+
+<h2>{{ ico('foto', size=20) }} Le tue foto <small class="meta">({{ foto|length }})</small></h2>
+{% if foto %}
+<div class="soc-foto-griglia">
+  {% for f in foto %}
+  <figure>
+    <img src="{{ url_for('social_media', token=f.token) }}" alt="{{ f.nome }}" loading="lazy">
+    <figcaption><small>{{ f.nome | truncate(28) }}</small>
+      <form method="post" onsubmit="return confirm('Eliminare questa foto?')"><button class="btn-icona" name="elimina" value="{{ f.id }}" title="Elimina">{{ ico('cestino', size=16) }}</button></form>
+    </figcaption>
+  </figure>
+  {% endfor %}
+</div>
+{% else %}
+<p class="meta">Ancora nessuna foto caricata.</p>
+{% endif %}
+
+<h2 style="margin-top:26px">{{ ico('stella', size=20) }} Foto del brand <small class="meta">(già disponibili, dal sito)</small></h2>
+<div class="soc-foto-griglia">
+  {% for f in foto_base %}
+  <figure><img src="{{ url_for('static', filename='social/foto-base/' ~ f) }}" alt="" loading="lazy"><figcaption><small>{{ f }}</small></figcaption></figure>
+  {% endfor %}
+</div>
+{% endblock %}

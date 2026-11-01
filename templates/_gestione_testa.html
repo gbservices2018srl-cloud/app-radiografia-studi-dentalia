@@ -1,0 +1,25 @@
+{% from "_icone.html" import ico %}
+<div class="soc-testa">
+  <div class="soc-titolo">
+    <span class="soc-logo">{{ ico('social', size=28) }}</span>
+    <div>
+      <h1>Social Dentalia</h1>
+      <p class="meta">
+        <span class="soc-canale {{ 'on' if ig }}">{{ ico('instagram', size=15) }} {{ ('@' ~ imp.soc_ig_nome) if ig else 'Instagram non collegato' }}</span>
+        <span class="soc-canale {{ 'on' if li }}">{{ ico('linkedin', size=15) }} {{ imp.soc_li_nome if li else 'LinkedIn non collegato' }}</span>
+        <span class="soc-canale {{ 'on' if imp.soc_agente }}">{{ ico('agente', size=15) }} Agente {{ 'acceso' if imp.soc_agente else 'spento' }}</span>
+      </p>
+    </div>
+  </div>
+  {% if li and li_scade is not none and li_scade <= 10 %}
+  <p class="avviso">{{ ico('orologio') }} Il collegamento a LinkedIn scade {{ 'oggi' if li_scade <= 0 else 'tra ' ~ li_scade ~ ' giorni' }}: <a href="{{ url_for('social_collegamenti') }}">rinnova il token</a>.</p>
+  {% endif %}
+  {% set ep = request.endpoint %}
+  <nav class="soc-schede">
+    <a href="{{ url_for('gestione') }}" class="{{ 'on' if ep in ('gestione', 'social_post') }}">{{ ico('social', size=16) }} Post{% if conta.get('bozza') %} <b class="soc-pallino">{{ conta.get('bozza') }}</b>{% endif %}</a>
+    <a href="{{ url_for('social_foto') }}" class="{{ 'on' if ep == 'social_foto' }}">{{ ico('foto', size=16) }} Foto</a>
+    <a href="{{ url_for('social_idee') }}" class="{{ 'on' if ep == 'social_idee' }}">{{ ico('idea', size=16) }} Idee e linea</a>
+    <a href="{{ url_for('social_collegamenti') }}" class="{{ 'on' if ep == 'social_collegamenti' }}">{{ ico('collega', size=16) }} Collegamenti</a>
+    <a href="{{ url_for('social_agente') }}" class="{{ 'on' if ep == 'social_agente' }}">{{ ico('agente', size=16) }} Agente</a>
+  </nav>
+</div>

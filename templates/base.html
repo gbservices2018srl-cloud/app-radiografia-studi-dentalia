@@ -35,6 +35,7 @@
           {% if utente.is_admin %}
           <a href="{{ url_for('admin') }}"><strong>Pannello admin</strong></a>
           <a href="{{ url_for('newsletter') }}">Newsletter</a>
+          <a href="{{ url_for('gestione') }}">Social (gestione)</a>
           <a href="{{ url_for('admin_domande') }}">Domande radiografia</a>
           <a href="{{ url_for('listino') }}">Listino servizi</a>
           <a href="{{ url_for('impostazioni_azienda') }}">Dati aziendali</a>
@@ -51,7 +52,7 @@
     <a href="{{ url_for('preventivi') }}" class="{{ 'on' if ep.startswith('preventiv') }}">Preventivi</a>
     <a href="{{ url_for('contratti') }}" class="{{ 'on' if ep.startswith('contratt') and not ep.startswith('contatt') }}">Contratti</a>
     <a href="{{ url_for('kpi') }}" class="{{ 'on' if ep == 'kpi' }}">KPI</a>
-    {% if utente.is_admin %}<a href="{{ url_for('admin') }}" class="{{ 'on' if ep.startswith('admin') or ep.startswith('newsletter') or ep.startswith('sequenza') }}">Admin</a>{% endif %}
+    {% if utente.is_admin %}<a href="{{ url_for('admin') }}" class="{{ 'on' if ep.startswith('admin') or ep.startswith('newsletter') or ep.startswith('sequenza') or ep.startswith('social') or ep == 'gestione' }}">Admin</a>{% endif %}
   </nav>
   {% endif %}
   <main class="wrap">
