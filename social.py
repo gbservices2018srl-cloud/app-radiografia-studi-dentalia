@@ -553,7 +553,8 @@ def in_coda():
 
 def agente_dovuto(imp=None):
     imp = imp or impostazioni()
-    return bool(imp.soc_agente) and in_coda() < MAX_BOZZE
+    # senza la chiave dell'IA l'agente non prepara bozze da solo (i post di riserva solo col pulsante)
+    return bool(imp.soc_agente) and ia_attiva() and in_coda() < MAX_BOZZE
 
 
 def crea_bozza_agente(forza=False):
