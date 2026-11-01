@@ -823,7 +823,7 @@ class TestApp(unittest.TestCase):
         import social
         r = self.admin.post("/gestione/post/nuovo", data={
             "scena": "titolo", "tema": "Numeri", "titolo": "Conosci i *tuoi numeri*", "didascalia": "Testo #Dentalia",
-            "canale_instagram": "1", "canale_linkedin": "1", "data_prevista": "2026-01-05T09:30", "azione": "approva"})
+            "canale_instagram": "1", "canale_facebook": "1", "canale_linkedin": "1", "data_prevista": "2026-01-05T09:30", "azione": "approva"})
         self.assertEqual(r.status_code, 302)
         with m.app.app_context():
             p = m.SocialPost.query.filter_by(titolo="Conosci i *tuoi numeri*").one()
@@ -839,20 +839,22 @@ class TestApp(unittest.TestCase):
         # collego i due canali (in test nessuna chiamata esterna) e il giro pubblica
         self.admin.post("/gestione/collegamenti", data={"azione": "instagram", "token": "tok-ig"})
         self.admin.post("/gestione/collegamenti", data={"azione": "linkedin", "token": "tok-li", "org": "555"})
+        self.admin.post("/gestione/collegamenti", data={"azione": "facebook", "token": "tok-fb", "page_id": "777"})
         m.app.config["SOCIAL_PUBBLICATI"] = []
         with m.app.app_context():
             self.assertEqual(social.giro_pubblicazione(), 1)
             p = db_get(m.SocialPost, pid)
             self.assertEqual(p.stato, "pubblicato")
-            self.assertEqual(sorted(json.loads(p.esiti)), ["instagram", "linkedin"])
+            self.assertEqual(sorted(json.loads(p.esiti)), ["facebook", "instagram", "linkedin"])
             self.assertEqual(social.giro_pubblicazione(), 0)   # mai due volte
-        self.assertEqual(sorted(c for c, _ in m.app.config["SOCIAL_PUBBLICATI"]), ["instagram", "linkedin"])
+        self.assertEqual(sorted(c for c, _ in m.app.config["SOCIAL_PUBBLICATI"]), ["facebook", "instagram", "linkedin"])
         # un post pubblicato non si modifica né si elimina
         self.admin.post(f"/gestione/post/{pid}/stato", data={"azione": "elimina"})
         with m.app.app_context():
             self.assertIsNotNone(db_get(m.SocialPost, pid))
         self.admin.post("/gestione/collegamenti", data={"azione": "scollega_instagram"})
         self.admin.post("/gestione/collegamenti", data={"azione": "scollega_linkedin"})
+        self.admin.post("/gestione/collegamenti", data={"azione": "scollega_facebook"})
 
     def test_39_social_agente_max_due_bozze_e_avviso(self):
         import social

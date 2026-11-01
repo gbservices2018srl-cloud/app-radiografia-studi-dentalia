@@ -6,6 +6,7 @@
       <h1>Social Dentalia</h1>
       <p class="meta">
         <span class="soc-canale {{ 'on' if ig }}">{{ ico('instagram', size=15) }} {{ ('@' ~ imp.soc_ig_nome) if ig else 'Instagram non collegato' }}</span>
+        <span class="soc-canale {{ 'on' if fb }}">{{ ico('facebook', size=15) }} {{ imp.soc_fb_nome if fb else 'Facebook non collegato' }}</span>
         <span class="soc-canale {{ 'on' if li }}">{{ ico('linkedin', size=15) }} {{ imp.soc_li_nome if li else 'LinkedIn non collegato' }}</span>
         <span class="soc-canale {{ 'on' if imp.soc_agente }}">{{ ico('agente', size=15) }} Agente {{ 'acceso' if imp.soc_agente else 'spento' }}</span>
       </p>

@@ -34,6 +34,32 @@
 
 <section class="card soc-collega">
   <div class="soc-collega-testa">
+    <span class="soc-ico-canale fb">{{ ico('facebook', size=28) }}</span>
+    <div><h2>Facebook — Pagina Dentalia</h2>
+      {% if fb %}<p class="nl-ok">{{ ico('ok') }} Collegata: <b>{{ imp.soc_fb_nome }}</b> <small class="meta">(Pagina {{ imp.soc_fb_page }}, token {{ nascondi(imp.soc_fb_token) }})</small></p>
+      {% else %}<p class="meta">Non collegata.</p>{% endif %}
+    </div>
+  </div>
+  <details {{ 'open' if not fb }}>
+    <summary>Come ottenere il token (una volta sola)</summary>
+    <ol class="soc-passi">
+      <li>Apri <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a>, scegli l'app <b>Dentalia Pubblicazione</b> e «Utente».</li>
+      <li>Aggiungi le autorizzazioni <code>pages_show_list</code>, <code>pages_manage_posts</code>, <code>pages_read_engagement</code> e premi <b>Generate Access Token</b> (scegli la Pagina Dentalia).</li>
+      <li>Apri il <a href="https://developers.facebook.com/tools/debug/accesstoken/" target="_blank" rel="noopener">Debugger del token</a>, incolla il token e premi <b>Estendi token d'accesso</b>: copia il token lungo che compare.</li>
+      <li>Incollalo qui sotto: l'app trova da sola la Pagina Dentalia e salva il suo token, che <b>non scade</b>.</li>
+    </ol>
+  </details>
+  <form method="post" class="griglia soc-form-collega">
+    <input type="hidden" name="azione" value="facebook">
+    <label>Token di accesso<input name="token" autocomplete="off" placeholder="{{ 'lascia vuoto per riverificare quello salvato' if fb else 'incolla qui il token' }}"></label>
+    <label>ID Pagina <small>(facoltativo)</small><input name="page_id" value="{{ imp.soc_fb_page or fb_id_riserva }}" inputmode="numeric"></label>
+    <div class="azioni-riga"><button class="btn oro" type="submit">{{ ico('collega') }} {{ 'Verifica di nuovo' if fb else 'Collega e verifica' }}</button></div>
+  </form>
+  {% if fb %}<form method="post" onsubmit="return confirm('Scollegare Facebook?')"><input type="hidden" name="azione" value="scollega_facebook"><button class="btn sec-btn piccolo">{{ ico('x') }} Scollega</button></form>{% endif %}
+</section>
+
+<section class="card soc-collega">
+  <div class="soc-collega-testa">
     <span class="soc-ico-canale li">{{ ico('linkedin', size=28) }}</span>
     <div><h2>LinkedIn — pagina aziendale</h2>
       {% if li %}<p class="nl-ok">{{ ico('ok') }} Collegata: <b>{{ imp.soc_li_nome }}</b> <small class="meta">(organizzazione {{ imp.soc_li_org }}, token {{ nascondi(imp.soc_li_token) }}{% if li_scade is not none %}, scade tra {{ li_scade }} giorni{% endif %})</small></p>

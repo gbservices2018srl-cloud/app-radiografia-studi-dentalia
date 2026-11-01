@@ -40,7 +40,7 @@ from social_piano import IDEE, LINEA_BASE, TEMI
 
 ROMA = ZoneInfo("Europe/Rome")
 MAX_BOZZE = 2
-CANALI = {"instagram": "Instagram", "linkedin": "LinkedIn"}
+CANALI = {"instagram": "Instagram", "facebook": "Facebook", "linkedin": "LinkedIn"}
 STATI_POST = {"bozza": "Da approvare", "approvato": "Programmato", "in_pubblicazione": "In pubblicazione",
               "pubblicato": "Pubblicato", "errore": "Errore", "scartato": "Scartato"}
 FOTO_BASE = ["foto-reception.jpg", "foto-camice-member.jpg", "foto-porta-member.jpg", "foto-biglietto.jpg",
@@ -62,6 +62,16 @@ def li_versione():
 def ig_pronto(imp=None):
     imp = imp or impostazioni()
     return bool(imp.soc_ig_token and imp.soc_ig_user)
+
+
+def fb_pronto(imp=None):
+    imp = imp or impostazioni()
+    return bool(imp.soc_fb_token and imp.soc_fb_page)
+
+
+def canale_pronto(canale, imp=None):
+    imp = imp or impostazioni()
+    return {"instagram": ig_pronto, "facebook": fb_pronto, "linkedin": li_pronto}[canale](imp)
 
 
 def li_pronto(imp=None):
@@ -288,6 +298,47 @@ def pubblica_instagram(p, imp):
     return {"id": mid, "link": link}
 
 
+# ------------------------------------------------------------------ Facebook (Pagina)
+def verifica_facebook(token, pagina=""):
+    """Dal token (utente o Pagina) trova la Pagina Dentalia. Restituisce (page_id, nome, token_pagina).
+    Con un token utente «di lunga durata» il token della Pagina non scade."""
+    token = token.strip()
+    pagina = re.sub(r"\D", "", pagina or "")
+    errori = []
+    try:
+        _, _, d = http("GET", f"{GRAPH_FB}/me/accounts?" + urllib.parse.urlencode(
+            {"fields": "id,name,access_token", "limit": 100, "access_token": token}))
+        pagine = d.get("data", [])
+        scelta = next((x for x in pagine if pagina and x.get("id") == pagina), None) \
+            or next((x for x in pagine if (x.get("name") or "").strip().lower() == "dentalia"), None) \
+            or (pagine[0] if len(pagine) == 1 else None)
+        if scelta:
+            return scelta["id"], scelta.get("name") or scelta["id"], scelta.get("access_token") or token
+        if pagine:
+            errori.append("più Pagine trovate: scrivi l'ID della Pagina Dentalia")
+    except ErroreSocial as e:
+        errori.append(f"pagine: {e}")
+    try:  # forse è già il token della Pagina
+        _, _, d = http("GET", f"{GRAPH_FB}/me?" + urllib.parse.urlencode({"fields": "id,name", "access_token": token}))
+        if d.get("id") and (not pagina or d["id"] == pagina):
+            _, _, prova = http("GET", f"{GRAPH_FB}/{d['id']}?" + urllib.parse.urlencode(
+                {"fields": "id,name,fan_count", "access_token": token}))
+            if "fan_count" in prova or "name" in prova:
+                return d["id"], d.get("name") or d["id"], token
+    except ErroreSocial as e:
+        errori.append(f"token: {e}")
+    raise ErroreSocial("Pagina Facebook non trovata. Risposte di Meta → " + " | ".join(errori or ["nessuna"]))
+
+
+def pubblica_facebook(p, imp):
+    _, _, d = http("POST", f"{GRAPH_FB}/{imp.soc_fb_page}/photos",
+                   dati={"url": link_media(p), "message": p.didascalia or "", "access_token": imp.soc_fb_token})
+    pid = d.get("post_id") or d.get("id")
+    if not pid:
+        raise ErroreSocial(f"Facebook non ha pubblicato: {d}")
+    return {"id": pid, "link": f"https://www.facebook.com/{pid}"}
+
+
 # ------------------------------------------------------------------ LinkedIn
 def li_headers(imp):
     return {"Authorization": f"Bearer {imp.soc_li_token}", "LinkedIn-Version": li_versione(),
@@ -358,7 +409,7 @@ def pubblica(p):
     for canale in canali_di(p):
         if esiti.get(canale, {}).get("ok"):
             continue
-        pronto = ig_pronto(imp) if canale == "instagram" else li_pronto(imp)
+        pronto = canale_pronto(canale, imp)
         if not pronto:
             esiti[canale] = {"ok": False, "manuale": True, "errore": "canale non collegato: pubblicalo a mano"}
             continue
@@ -368,6 +419,8 @@ def pubblica(p):
                 r = {"id": f"finto-{canale}-{p.id}", "link": None}
             elif canale == "instagram":
                 r = pubblica_instagram(p, imp)
+            elif canale == "facebook":
+                r = pubblica_facebook(p, imp)
             else:
                 r = pubblica_linkedin(p, imp)
             esiti[canale] = {"ok": True, "id": r.get("id"), "link": r.get("link"),
@@ -399,7 +452,7 @@ def giro_pubblicazione():
     try:
         adesso = datetime.utcnow()
         imp = impostazioni()
-        collegati = [c for c in CANALI if (ig_pronto(imp) if c == "instagram" else li_pronto(imp))]
+        collegati = [c for c in CANALI if canale_pronto(c, imp)]
         if not collegati:
             return 0
         pronti = SocialPost.query.filter(SocialPost.stato == "approvato", SocialPost.data_prevista <= adesso) \
@@ -520,7 +573,8 @@ def _riepilogo():
     li_scade = None
     if imp.soc_li_scade:
         li_scade = (imp.soc_li_scade - datetime.utcnow()).days
-    return {"imp": imp, "ig": ig_pronto(imp), "li": li_pronto(imp), "conta": conta, "li_scade": li_scade,
+    return {"imp": imp, "ig": ig_pronto(imp), "fb": fb_pronto(imp), "li": li_pronto(imp), "conta": conta,
+            "li_scade": li_scade, "qualche_canale": any(canale_pronto(c, imp) for c in CANALI),
             "stati": STATI_POST, "canali_nomi": CANALI}
 
 
@@ -604,7 +658,7 @@ def social_post(pid=None):
             db.session.commit()
             quando = p.data_prevista.replace(tzinfo=ZoneInfo("UTC")).astimezone(ROMA).strftime("%d/%m alle %H:%M")
             r = _riepilogo()
-            if r["ig"] or r["li"]:
+            if r["qualche_canale"]:
                 flash(f"Approvato: verrà pubblicato da solo il {quando}.")
             else:
                 flash(f"Approvato per il {quando}. Nessun social è ancora collegato: quel giorno pubblicalo a mano "
@@ -817,6 +871,20 @@ def social_collegamenti():
                     modo, uid, nome, tok = verifica_instagram(token, uid_scritto)
                 imp.soc_ig_modo, imp.soc_ig_user, imp.soc_ig_nome, imp.soc_ig_token = modo, uid, nome, tok
                 flash(f"Instagram collegato: @{nome}.")
+            elif azione == "facebook":
+                token = f.get("token", "").strip() or imp.soc_fb_token or ""
+                if not token:
+                    raise ErroreSocial("incolla il token")
+                pagina = f.get("page_id", "").strip() or imp.soc_fb_page or os.environ.get("FACEBOOK_PAGE_ID", "")
+                if app.config.get("TESTING"):
+                    pid, nome, tok = re.sub(r"\D", "", pagina) or "999", "Dentalia (test)", token
+                else:
+                    pid, nome, tok = verifica_facebook(token, pagina)
+                imp.soc_fb_page, imp.soc_fb_nome, imp.soc_fb_token = pid, nome, tok
+                flash(f"Facebook collegato: Pagina «{nome}».")
+            elif azione == "scollega_facebook":
+                imp.soc_fb_token = imp.soc_fb_page = imp.soc_fb_nome = None
+                flash("Facebook scollegato.")
             elif azione == "linkedin":
                 token = f.get("token", "").strip() or imp.soc_li_token or ""
                 if not token:
@@ -845,6 +913,7 @@ def social_collegamenti():
         return redirect(url_for("social_collegamenti"))
     return render_template("gestione_collegamenti.html", nascondi=nascondi, li_versione=li_versione(),
                            ig_id_riserva=os.environ.get("INSTAGRAM_ID", ""),
+                           fb_id_riserva=os.environ.get("FACEBOOK_PAGE_ID", ""),
                            **_riepilogo())
 
 

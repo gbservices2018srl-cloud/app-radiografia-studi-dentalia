@@ -12,7 +12,7 @@
       <li>Ogni <b>{{ imp.soc_ogni or 3 }} giorni</b> prende un'idea dal <a href="{{ url_for('social_idee') }}">piano editoriale</a>, cambiando tema ogni volta.</li>
       <li>Prepara la <b>grafica Dentalia</b> e la didascalia, e la mette tra le bozze con la data di uscita.</li>
       <li>{% if imp.soc_avviso is not false %}Ti manda un'email{% else %}Non ti avvisa via email (puoi accenderlo sotto){% endif %}: tu la guardi, la correggi e la <b>approvi</b>.</li>
-      <li>Il giorno previsto il post esce da solo su Instagram e LinkedIn. Niente esce senza la tua approvazione.</li>
+      <li>Il giorno previsto il post esce da solo su Instagram, Facebook e LinkedIn. Niente esce senza la tua approvazione.</li>
     </ol>
     <p class="meta">Mai più di {{ max_bozze }} bozze in attesa: se non le approvi, l'agente aspetta. Ora ce ne sono <b>{{ bozze }}</b>.</p>
   </div>

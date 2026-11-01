@@ -61,7 +61,7 @@
       {% set scelti = canali_di(p) %}
       {% for c, nome in canali_nomi.items() %}
       <label class="crm-spunta"><input type="checkbox" name="canale_{{ c }}" value="1" {{ 'checked' if c in scelti }}> <span>{{ ico(c, size=16) }} {{ nome }}
-        {% if (c == 'instagram' and not ig) or (c == 'linkedin' and not li) %}<small>(non collegato: a mano)</small>{% endif %}</span></label>
+        {% if (c == 'instagram' and not ig) or (c == 'facebook' and not fb) or (c == 'linkedin' and not li) %}<small>(non collegato: a mano)</small>{% endif %}</span></label>
       {% endfor %}
     </div>
     <label>Data e ora di uscita (ora italiana)<input type="datetime-local" name="data_prevista" value="{{ data_locale }}"></label>
@@ -71,7 +71,7 @@
     <div class="azioni-riga" style="margin-top:16px">
       <button class="btn oro" name="azione" value="approva">{{ ico('ok') }} {{ 'Salva e approva' if p.stato != 'approvato' else 'Salva (resta programmato)' }}</button>
       <button class="btn sec-btn" name="azione" value="salva">{{ ico('nota') }} Salva bozza</button>
-      {% if ig or li %}<button class="btn sec-btn" name="azione" value="pubblica" onclick="return confirm('Pubblicare subito sui canali scelti?')">{{ ico('invia') }} Pubblica adesso</button>{% endif %}
+      {% if qualche_canale %}<button class="btn sec-btn" name="azione" value="pubblica" onclick="return confirm('Pubblicare subito sui canali scelti?')">{{ ico('invia') }} Pubblica adesso</button>{% endif %}
     </div>
     {% endif %}
   </form>

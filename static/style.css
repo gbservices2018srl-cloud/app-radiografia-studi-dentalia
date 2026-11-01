@@ -687,6 +687,7 @@ a.per-passo:hover { transform: translateY(-1px); }
 .soc-ico-canale { width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff; flex: none; }
 .soc-ico-canale.ig { background: linear-gradient(45deg, #f09433, #dc2743 50%, #bc1888); }
 .soc-ico-canale.li { background: #0a66c2; }
+.soc-ico-canale.fb { background: #1877f2; }
 .soc-collega details { margin: 10px 0 14px; background: var(--oro-chiaro); border-radius: 10px; padding: 10px 14px; }
 .soc-collega summary { cursor: pointer; font-weight: 600; color: var(--primario); }
 .soc-passi { margin: 10px 0 6px; padding-left: 20px; line-height: 1.55; }

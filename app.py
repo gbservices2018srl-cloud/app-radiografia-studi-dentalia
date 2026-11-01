@@ -157,6 +157,9 @@ class Impostazioni(db.Model):
     soc_li_nome = db.Column(db.String(200))
     soc_li_token = db.Column(db.Text)
     soc_li_scade = db.Column(db.DateTime)
+    soc_fb_page = db.Column(db.String(40))       # Pagina Facebook: ID
+    soc_fb_nome = db.Column(db.String(200))
+    soc_fb_token = db.Column(db.Text)            # token della Pagina (da un token utente di lunga durata non scade)
     soc_agente = db.Column(db.Boolean)
     soc_ogni = db.Column(db.Integer)         # giorni tra una bozza e l'altra (default 3)
     soc_ora = db.Column(db.String(5))        # ora di pubblicazione, es. "09:30" (ora italiana)
