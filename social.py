@@ -510,10 +510,19 @@ def crea_bozza_agente(forza=False):
     return p
 
 
+AVVISI_EMAIL = "info@dentaliagroup.it"
+
+
+def email_avvisi(imp=None):
+    """Indirizzo unico per gli avvisi social (mai gli account degli utenti)."""
+    imp = imp or impostazioni()
+    return (imp.soc_avviso_email or "").strip() or AVVISI_EMAIL
+
+
 def avvisa_bozza(p):
     if not smtp_pronto():
         return
-    destinatari = [u.email for u in Utente.query.filter_by(ruolo="admin").all() if u.email and u.attivo is not False]
+    destinatari = [email_avvisi()]
     if not destinatari:
         return
     try:
@@ -931,6 +940,8 @@ def social_agente():
         ora = f.get("ora", "09:30")
         imp.soc_ora = ora if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", ora) else "09:30"
         imp.soc_avviso = f.get("avviso") == "1"
+        em = f.get("avviso_email", "").strip()
+        imp.soc_avviso_email = em[:200] if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", em) else None
         db.session.commit()
         flash("Agente acceso: preparerà una bozza ogni %d giorni." % imp.soc_ogni if imp.soc_agente
               else "Agente spento: nessuna bozza automatica.")

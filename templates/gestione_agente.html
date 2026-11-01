@@ -26,6 +26,7 @@
     <label>Ora di uscita dei post (ora italiana)<input type="time" name="ora" value="{{ imp.soc_ora or '09:30' }}"></label>
   </div>
   <label class="crm-spunta" style="margin-top:10px"><input type="checkbox" name="avviso" value="1" {{ 'checked' if imp.soc_avviso is not false }}> <span>{{ ico('mail', size=15) }} Avvisami via email quando c'è una bozza {% if not smtp_ok %}<small class="nl-err">(serve la casella email configurata)</small>{% endif %}</span></label>
+  <label style="margin-top:8px;display:block">Indirizzo per gli avvisi<input type="email" name="avviso_email" value="{{ imp.soc_avviso_email or 'info@dentaliagroup.it' }}"></label>
   <button class="btn oro" type="submit" style="margin-top:12px">{{ ico('ok') }} Salva</button>
 </form>
 

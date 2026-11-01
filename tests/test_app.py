@@ -879,7 +879,9 @@ class TestApp(unittest.TestCase):
             from zoneinfo import ZoneInfo
             self.assertLess(p2.data_prevista.replace(tzinfo=ZoneInfo("UTC")).astimezone(social.ROMA).weekday(), 5)
             pid1 = p1.id
-            self.assertTrue(any("bozza" in e["Subject"] for e in m.app.config["EMAIL_INVIATE"]))
+            avvisi = [e for e in m.app.config["EMAIL_INVIATE"] if "bozza" in e["Subject"]]
+            self.assertTrue(avvisi)
+            self.assertEqual({e["To"] for e in avvisi}, {"info@dentaliagroup.it"})  # mai agli account admin
             imp.soc_agente = False
             m.db.session.commit()
         r = self.admin.post(f"/gestione/post/{pid1}/stato", data={"azione": "scarta"})

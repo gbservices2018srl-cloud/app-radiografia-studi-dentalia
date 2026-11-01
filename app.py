@@ -165,6 +165,7 @@ class Impostazioni(db.Model):
     soc_ora = db.Column(db.String(5))        # ora di pubblicazione, es. "09:30" (ora italiana)
     soc_ultimo = db.Column(db.DateTime)      # ultima bozza creata dall'agente
     soc_avviso = db.Column(db.Boolean)       # email all'admin quando c'è una bozza da approvare
+    soc_avviso_email = db.Column(db.String(200))  # dove arrivano gli avvisi social (vuoto = info@dentaliagroup.it)
 
 
 class Contatto(db.Model):
