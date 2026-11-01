@@ -234,18 +234,25 @@ def verifica_instagram(token, user_id=""):
             return "instagram", str(d.get("user_id") or d.get("id")), d["username"], token
     except ErroreSocial:
         pass
-    # token Facebook: cerca la Pagina collegata all'account Instagram professionale
-    _, _, d = http("GET", f"{GRAPH_FB}/me/accounts?" + urllib.parse.urlencode(
-        {"fields": "name,access_token,instagram_business_account{id,username}", "access_token": token}))
+    user_id = re.sub(r"\D", "", user_id or "")
+    if user_id:  # token di Meta (es. utente di sistema, «accesso unificato»): basta l'ID dell'account Instagram
+        try:
+            _, _, d = http("GET", f"{GRAPH_FB}/{user_id}?" + urllib.parse.urlencode(
+                {"fields": "username", "access_token": token}))
+            if d.get("username"):
+                return "facebook", user_id, d["username"], token
+        except ErroreSocial:
+            pass
+    # token Facebook di un utente: cerca la Pagina collegata all'account Instagram professionale
+    try:
+        _, _, d = http("GET", f"{GRAPH_FB}/me/accounts?" + urllib.parse.urlencode(
+            {"fields": "name,access_token,instagram_business_account{id,username}", "access_token": token}))
+    except ErroreSocial as err:
+        raise ErroreSocial(f"token non accettato da Meta ({err}). Se è un token di sistema, scrivi anche l'ID account Instagram")
     for pagina in d.get("data", []):
         ig = pagina.get("instagram_business_account")
         if ig and (not user_id or ig.get("id") == user_id):
             return "facebook", ig["id"], ig.get("username") or pagina.get("name"), pagina.get("access_token") or token
-    if user_id:
-        _, _, d = http("GET", f"{GRAPH_FB}/{user_id}?" + urllib.parse.urlencode(
-            {"fields": "username", "access_token": token}))
-        if d.get("username"):
-            return "facebook", user_id, d["username"], token
     raise ErroreSocial("nessun account Instagram professionale trovato con questo token")
 
 
