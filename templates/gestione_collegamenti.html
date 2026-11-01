@@ -26,7 +26,7 @@
   <form method="post" class="griglia soc-form-collega">
     <input type="hidden" name="azione" value="instagram">
     <label>Token di accesso<input name="token" autocomplete="off" placeholder="{{ 'lascia vuoto per riverificare quello salvato' if ig else 'incolla qui il token' }}"></label>
-    <label>ID account Instagram <small>(facoltativo)</small><input name="user_id" value="{{ imp.soc_ig_user or '' }}"></label>
+    <label>ID account Instagram <small>(facoltativo)</small><input name="user_id" value="{{ imp.soc_ig_user or ig_id_riserva }}" inputmode="numeric"></label>
     <div class="azioni-riga"><button class="btn oro" type="submit">{{ ico('collega') }} {{ 'Verifica di nuovo' if ig else 'Collega e verifica' }}</button></div>
   </form>
   {% if ig %}<form method="post" onsubmit="return confirm('Scollegare Instagram?')"><input type="hidden" name="azione" value="scollega_instagram"><button class="btn sec-btn piccolo">{{ ico('x') }} Scollega</button></form>{% endif %}

@@ -812,7 +812,9 @@ def social_collegamenti():
                 if app.config.get("TESTING"):
                     modo, uid, nome, tok = "instagram", f.get("user_id") or "1789", "dentalia_test", token
                 else:
-                    modo, uid, nome, tok = verifica_instagram(token, f.get("user_id", "").strip())
+                    uid_scritto = (f.get("user_id", "").strip() or imp.soc_ig_user
+                                   or os.environ.get("INSTAGRAM_ID", ""))   # ID account Instagram di riserva
+                    modo, uid, nome, tok = verifica_instagram(token, uid_scritto)
                 imp.soc_ig_modo, imp.soc_ig_user, imp.soc_ig_nome, imp.soc_ig_token = modo, uid, nome, tok
                 flash(f"Instagram collegato: @{nome}.")
             elif azione == "linkedin":
@@ -842,6 +844,7 @@ def social_collegamenti():
             flash(f"Collegamento non riuscito: {err}")
         return redirect(url_for("social_collegamenti"))
     return render_template("gestione_collegamenti.html", nascondi=nascondi, li_versione=li_versione(),
+                           ig_id_riserva=os.environ.get("INSTAGRAM_ID", ""),
                            **_riepilogo())
 
 
