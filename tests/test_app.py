@@ -856,41 +856,46 @@ class TestApp(unittest.TestCase):
         self.admin.post("/gestione/collegamenti", data={"azione": "scollega_linkedin"})
         self.admin.post("/gestione/collegamenti", data={"azione": "scollega_facebook"})
 
-    def test_39_social_agente_max_due_bozze_e_avviso(self):
+    def test_39_social_agente_ia_ped_e_coda(self):
         import social
+        finti = [{"fase": "avvio", "tema": f"Tema {i}", "obiettivo": "follower", "scena": ["titolo", "lista", "domanda"][i % 3],
+                  "titolo": f"Post *numero {i}*", "punti": ["Uno", "Due"], "didascalia": f"Didascalia {i} #Dentalia"}
+                 for i in range(4)]
+        m.app.config["IA_RISPOSTA_FINTA"] = "Ecco il PED:\n" + json.dumps(finti)
         with m.app.app_context():
-            m.SocialPost.query.filter_by(stato="bozza").delete()
+            m.SocialPost.query.filter(m.SocialPost.stato.in_(("bozza", "approvato"))).delete()
             imp = m.impostazioni()
-            imp.soc_agente, imp.soc_ultimo, imp.soc_avviso = True, None, True
+            imp.soc_agente, imp.soc_ultimo, imp.soc_avviso, imp.soc_ped = True, None, True, None
             m.db.session.commit()
             m.app.config["EMAIL_INVIATE"] = []
             p1 = social.crea_bozza_agente()
             self.assertIsNotNone(p1)
-            self.assertEqual(p1.stato, "bozza")
-            self.assertIsNone(p1.creato_da)
+            self.assertEqual(p1.titolo, "Post *numero 0*")
+            self.assertTrue(p1.idea.startswith("ia-"))
             self.assertIsNotNone(p1.media_id)
-            self.assertTrue(p1.didascalia)
-            self.assertIsNone(social.crea_bozza_agente())          # non sono passati 3 giorni
-            p2 = social.crea_bozza_agente(forza=True)
-            self.assertNotEqual(p1.idea, p2.idea)
-            self.assertNotEqual(p1.tema, p2.tema)
-            self.assertIsNone(social.crea_bozza_agente(forza=True))  # già 2 bozze in attesa
+            self.assertEqual(len(social.ped_corrente()), 3)          # il PED si accorcia man mano
+            self.assertTrue(m.impostazioni().soc_sito)                # il sito è stato letto
+            p2 = social.crea_bozza_agente()                          # tiene pronti 2 post
+            self.assertIsNotNone(p2)
+            self.assertIsNone(social.crea_bozza_agente())            # già 2 in coda
             self.assertTrue(p2.data_prevista > p1.data_prevista)
             from zoneinfo import ZoneInfo
             self.assertLess(p2.data_prevista.replace(tzinfo=ZoneInfo("UTC")).astimezone(social.ROMA).weekday(), 5)
-            pid1 = p1.id
             avvisi = [e for e in m.app.config["EMAIL_INVIATE"] if "bozza" in e["Subject"]]
             self.assertTrue(avvisi)
             self.assertEqual({e["To"] for e in avvisi}, {"info@dentaliagroup.it"})  # mai agli account admin
+            pid1 = p1.id
+        # se una bozza viene eliminata, l'agente ne prepara subito un'altra
+        self.admin.post(f"/gestione/post/{pid1}/stato", data={"azione": "elimina"})
+        with m.app.app_context():
+            self.assertIsNotNone(social.crea_bozza_agente())
+            imp = m.impostazioni()
             imp.soc_agente = False
             m.db.session.commit()
-        r = self.admin.post(f"/gestione/post/{pid1}/stato", data={"azione": "scarta"})
-        self.assertEqual(r.status_code, 302)
-        r = self.admin.post("/gestione/agente/ora", data={"idea": "net-reception"})
-        self.assertEqual(r.status_code, 302)
-        self.assertIn("/gestione/post/", r.location)
-        pagina = self.admin.get("/gestione").get_data(as_text=True)
-        self.assertIn("Da approvare", pagina)
+        pagina = self.admin.get("/gestione/strategia").get_data(as_text=True)
+        self.assertIn("Il percorso", pagina)
+        self.assertIn("Post numero", pagina)
+        self.assertIn("Da approvare", self.admin.get("/gestione").get_data(as_text=True))
 
     def test_40_social_foto_e_idee(self):
         from PIL import Image
@@ -905,9 +910,22 @@ class TestApp(unittest.TestCase):
         r = self.admin.post("/gestione/post/nuovo", data={"scena": "immagine", "titolo": "", "foto": f"m:{fid}",
                                                           "didascalia": "Il team", "azione": "salva"})
         self.assertEqual(r.status_code, 302)
-        self.admin.post("/gestione/idee", data={"azione": "aggiungi", "tema": "Il network", "scena": "titolo",
-                                                "titolo": "Idea *mia*", "didascalia": "Testo idea"})
-        self.assertIn("Idea mia", self.admin.get("/gestione/idee").get_data(as_text=True))
+        self.admin.post("/gestione/strategia", data={"azione": "istruzioni", "istruzioni": "Parla ai titolari sardi"})
+        with m.app.app_context():
+            self.assertEqual(m.impostazioni().soc_istruzioni, "Parla ai titolari sardi")
+        m.app.config["IA_RISPOSTA_FINTA"] = json.dumps([{"fase": "crescita", "tema": "Numeri", "scena": "foto",
+                                                         "foto": "inventata.jpg", "titolo": "Rifatto *nuovo*",
+                                                         "didascalia": "Testo"}])
+        self.admin.post("/gestione/strategia", data={"azione": "ped"})
+        with m.app.app_context():
+            import social as s_
+            ped = s_.ped_corrente()
+            self.assertEqual([x["titolo"] for x in ped], ["Rifatto *nuovo*"])
+            self.assertEqual(ped[0]["foto"], "foto-reception.jpg")   # foto inesistente -> foto del brand
+            iid = ped[0]["id"]
+        self.admin.post("/gestione/strategia", data={"azione": "togli", "id": iid})
+        with m.app.app_context():
+            self.assertEqual(s_.ped_corrente(), [])
         import social
         testo = social.testo_linkedin("Ciao (prova) #Dentalia e @tutti")
         self.assertIn("\\(prova\\)", testo)

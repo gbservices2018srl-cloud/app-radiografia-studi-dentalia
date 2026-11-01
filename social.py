@@ -33,6 +33,7 @@ from zoneinfo import ZoneInfo
 from flask import Response, abort, flash, g, redirect, render_template, request, send_file, url_for
 from PIL import Image, ImageOps
 
+import agente_ia
 import grafica_social
 from app import (SocialMedia, SocialPost, Utente, admin_richiesto, app, db, impostazioni)
 from newsletter import Postino, app_url, conf_smtp, smtp_pronto
@@ -123,7 +124,73 @@ def idee_tutte():
 
 
 def idea_per_id(iid):
-    return next((i for i in idee_tutte() if i["id"] == iid), None)
+    return next((i for i in ped_corrente() + idee_tutte() if i["id"] == iid), None)
+
+
+# ------------------------------------------------------------------ PED creato dall'IA
+def ped_corrente(imp=None):
+    imp = imp or impostazioni()
+    try:
+        return json.loads(imp.soc_ped or "[]")
+    except ValueError:
+        return []
+
+
+def salva_ped(lista, imp=None):
+    imp = imp or impostazioni()
+    imp.soc_ped = json.dumps(lista, ensure_ascii=False)
+
+
+def numero_usciti():
+    return SocialPost.query.filter(SocialPost.stato.in_(("bozza", "approvato", "in_pubblicazione", "pubblicato"))).count()
+
+
+def ia_attiva():
+    return agente_ia.disponibile(app)
+
+
+def rileggi_sito(imp=None):
+    imp = imp or impostazioni()
+    imp.soc_sito = agente_ia.leggi_sito(app=app)
+    imp.soc_sito_il = datetime.utcnow()
+    return imp.soc_sito
+
+
+def aggiorna_ped(forza=False):
+    """Se il PED è quasi finito (o forza=True) l'IA scrive i prossimi post. Restituisce la lista aggiornata."""
+    imp = impostazioni()
+    ped = ped_corrente(imp)
+    if not forza and len(ped) >= 2:
+        return ped
+    if not forza and imp.soc_ia_errore_il and datetime.utcnow() - imp.soc_ia_errore_il < timedelta(hours=1):
+        return ped  # dopo un errore riprova al massimo una volta l'ora
+    try:
+        if not imp.soc_sito or not imp.soc_sito_il or datetime.utcnow() - imp.soc_sito_il > timedelta(days=14):
+            rileggi_sito(imp)
+        titoli = [r[0] for r in db.session.query(SocialPost.titolo).filter(SocialPost.titolo.isnot(None))
+                  .order_by(SocialPost.id).all()] + [x.get("titolo", "") for x in ([] if forza else ped)]
+        nuovi = agente_ia.genera_ped(imp.soc_istruzioni, imp.soc_sito, numero_usciti() + (0 if forza else len(ped)),
+                                     [re.sub(r"\*", "", t) for t in titoli], app=app)
+        ped = nuovi if forza else ped + nuovi
+        salva_ped(ped, imp)
+        imp.soc_ped_il, imp.soc_ia_errore, imp.soc_ia_errore_il = datetime.utcnow(), None, None
+    except Exception as err:  # noqa: BLE001  l'errore si vede nella pagina Strategia
+        imp.soc_ia_errore, imp.soc_ia_errore_il = str(err)[:500], datetime.utcnow()
+        print(f"SOCIAL: PED non generato: {err}", flush=True)
+    db.session.commit()
+    return ped
+
+
+def prossima_idea_agente():
+    """Con l'IA: il prossimo post del PED (lo toglie dalla lista). Senza chiave: la libreria di riserva."""
+    if not ia_attiva():
+        return scegli_idea()
+    ped = aggiorna_ped()
+    if not ped:
+        return None
+    idea = ped.pop(0)
+    salva_ped(ped)
+    return idea
 
 
 def scegli_idea():
@@ -477,31 +544,38 @@ def bozze_in_attesa():
     return SocialPost.query.filter_by(stato="bozza").count()
 
 
-def agente_dovuto(imp=None, adesso=None):
+def in_coda():
+    """Post pronti per uscire: bozze da approvare + programmati futuri."""
+    return SocialPost.query.filter(db.or_(SocialPost.stato == "bozza",
+                                          db.and_(SocialPost.stato == "approvato",
+                                                  SocialPost.data_prevista > datetime.utcnow()))).count()
+
+
+def agente_dovuto(imp=None):
     imp = imp or impostazioni()
-    adesso = adesso or datetime.utcnow()
-    if not imp.soc_agente:
-        return False
-    ogni = imp.soc_ogni or 3
-    return not imp.soc_ultimo or adesso - imp.soc_ultimo >= timedelta(days=ogni) - timedelta(minutes=30)
+    return bool(imp.soc_agente) and in_coda() < MAX_BOZZE
 
 
 def crea_bozza_agente(forza=False):
-    """Prepara una bozza dal piano editoriale. Restituisce il post o None (se non è il momento o ci sono già 2 bozze)."""
+    """L'agente tiene sempre pronti i prossimi MAX_BOZZE post (uno ogni `soc_ogni` giorni): se ne manca uno
+    (anche perché una bozza è stata scartata o eliminata) prepara subito il successivo del PED."""
     imp = impostazioni()
     if not forza and not agente_dovuto(imp):
         return None
     if bozze_in_attesa() >= MAX_BOZZE:
         return None
-    idea = scegli_idea()
+    idea = prossima_idea_agente()
     if not idea:
         return None
     ogni = imp.soc_ogni or 3
     ultimo_prog = (db.session.query(db.func.max(SocialPost.data_prevista))
                    .filter(SocialPost.stato.in_(("bozza", "approvato"))).scalar())
-    data = prossima_data(giorni=2)
+    ultimo_usc = (db.session.query(db.func.max(SocialPost.pubblicato_il)).filter_by(stato="pubblicato").scalar())
+    data = prossima_data(giorni=1)
     if ultimo_prog and ultimo_prog > datetime.utcnow():
         data = max(data, prossima_data(ultimo_prog, giorni=ogni))
+    elif ultimo_usc:
+        data = max(data, prossima_data(ultimo_usc, giorni=ogni))
     p = post_da_idea(idea, data=data)
     imp.soc_ultimo = datetime.utcnow()
     db.session.commit()
@@ -772,14 +846,18 @@ def social_agente_ora():
         return redirect(url_for("gestione"))
     iid = request.form.get("idea")
     if iid:
-        idea = idea_per_id(iid) or abort(404)
+        ped = ped_corrente()
+        idea = next((x for x in ped if x["id"] == iid), None) or idea_per_id(iid) or abort(404)
+        salva_ped([x for x in ped if x["id"] != iid])
         p = post_da_idea(idea, utente_id=g.utente.id)
         db.session.commit()
     else:
         p = crea_bozza_agente(forza=True)
     if not p:
-        flash("Non ci sono idee disponibili: aggiungine qualcuna in «Idee e linea».")
-        return redirect(url_for("gestione"))
+        imp = impostazioni()
+        flash("L'agente non è riuscito a preparare la bozza" + (f": {imp.soc_ia_errore}" if imp.soc_ia_errore else ".")
+              + " Controlla la pagina Strategia.")
+        return redirect(url_for("social_idee"))
     flash("Ecco la nuova bozza: controllala e approvala.")
     return redirect(url_for("social_post", pid=p.id))
 
@@ -822,42 +900,45 @@ def social_foto():
     return render_template("gestione_foto.html", foto=foto, foto_base=FOTO_BASE, **_riepilogo())
 
 
+@app.route("/gestione/strategia", methods=["GET", "POST"])
 @app.route("/gestione/idee", methods=["GET", "POST"])
 @admin_richiesto
 def social_idee():
+    """Strategia: istruzioni per l'agente, sito letto, percorso a fasi e PED creato dall'IA."""
     imp = impostazioni()
-    try:
-        mie = json.loads(imp.soc_idee or "[]")
-    except ValueError:
-        mie = []
     if request.method == "POST":
         f = request.form
-        if f.get("azione") == "linea":
-            imp.soc_linea = f.get("linea", "").strip() or None
-            flash("Linea editoriale salvata.")
-        elif f.get("azione") == "aggiungi":
-            titolo = f.get("titolo", "").strip()
-            if not titolo or not f.get("didascalia", "").strip():
-                flash("Per una nuova idea servono titolo e didascalia.")
-                return redirect(url_for("social_idee"))
-            mie.append({"id": "mia-" + secrets.token_hex(4), "tema": f.get("tema", "").strip() or "Il network",
-                        "scena": f.get("scena") if f.get("scena") in grafica_social.SCENE else "titolo",
-                        "titolo": titolo[:300], "testo": f.get("testo", "").strip(),
-                        "punti": [r.strip() for r in f.get("punti", "").splitlines() if r.strip()],
-                        "foto": f.get("foto") or None, "didascalia": f.get("didascalia", "").strip()})
-            imp.soc_idee = json.dumps(mie, ensure_ascii=False)
-            flash("Idea aggiunta: l'agente la userà nei prossimi giri.")
-        elif f.get("azione") == "togli":
-            mie = [i for i in mie if i["id"] != f.get("id")]
-            imp.soc_idee = json.dumps(mie, ensure_ascii=False)
-            flash("Idea tolta.")
-        db.session.commit()
+        azione = f.get("azione")
+        if azione == "istruzioni":
+            imp.soc_istruzioni = f.get("istruzioni", "").strip()[:8000] or None
+            db.session.commit()
+            flash("Istruzioni salvate: l'agente le userà dal prossimo PED. Per applicarle subito premi «Rifai il PED».")
+        elif azione == "sito":
+            try:
+                testo = rileggi_sito(imp)
+                db.session.commit()
+                flash(f"Sito riletto: {len(testo):,} caratteri di contenuti.".replace(",", "."))
+            except Exception as err:  # noqa: BLE001
+                db.session.rollback()
+                flash(f"Non sono riuscito a leggere il sito: {err}")
+        elif azione == "ped":
+            if not ia_attiva():
+                flash("Manca la chiave dell'IA (ANTHROPIC_API_KEY su Render): vedi le istruzioni qui sotto.")
+            else:
+                ped = aggiorna_ped(forza=True)
+                imp = impostazioni()
+                flash(f"Nuovo PED pronto: {len(ped)} post in programma." if not imp.soc_ia_errore
+                      else f"PED non creato: {imp.soc_ia_errore}")
+        elif azione == "togli":
+            salva_ped([x for x in ped_corrente(imp) if x["id"] != f.get("id")], imp)
+            db.session.commit()
+            flash("Post tolto dal PED.")
         return redirect(url_for("social_idee"))
-    usate = dict(db.session.query(SocialPost.idea, db.func.count()).filter(SocialPost.idea.isnot(None))
-                 .group_by(SocialPost.idea).all())
-    return render_template("gestione_idee.html", idee=idee_tutte(), usate=usate, linea=imp.soc_linea or LINEA_BASE,
-                           scene=SCENE_NOMI, temi=TEMI + ["Domanda della settimana"], foto_base=FOTO_BASE,
-                           prossima=scegli_idea(), **_riepilogo())
+    usciti = numero_usciti()
+    fase = agente_ia.fase_per(usciti)
+    return render_template("gestione_idee.html", ped=ped_corrente(imp), fasi=agente_ia.FASI, fase=fase,
+                           usciti=usciti, ia=ia_attiva(), modello=agente_ia.modello(), scene=SCENE_NOMI,
+                           sito_caratteri=len(imp.soc_sito or ""), **_riepilogo())
 
 
 @app.route("/gestione/collegamenti", methods=["GET", "POST"])
@@ -943,11 +1024,11 @@ def social_agente():
         em = f.get("avviso_email", "").strip()
         imp.soc_avviso_email = em[:200] if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", em) else None
         db.session.commit()
-        flash("Agente acceso: preparerà una bozza ogni %d giorni." % imp.soc_ogni if imp.soc_agente
+        flash("Agente acceso: tiene sempre pronti i prossimi post, uno ogni %d giorni." % imp.soc_ogni if imp.soc_agente
               else "Agente spento: nessuna bozza automatica.")
         return redirect(url_for("social_agente"))
-    prossima = None
-    if imp.soc_agente:
-        prossima = (imp.soc_ultimo + timedelta(days=imp.soc_ogni or 3)) if imp.soc_ultimo else datetime.utcnow()
-    return render_template("gestione_agente.html", prossima=prossima, bozze=bozze_in_attesa(), max_bozze=MAX_BOZZE,
-                           smtp_ok=smtp_pronto(), idea=scegli_idea(), **_riepilogo())
+    ped = ped_corrente(imp)
+    idea = ped[0] if ped and ia_attiva() else (None if ia_attiva() else scegli_idea())
+    return render_template("gestione_agente.html", bozze=bozze_in_attesa(), coda=in_coda(), max_bozze=MAX_BOZZE,
+                           smtp_ok=smtp_pronto(), idea=idea, ia=ia_attiva(),
+                           fase=agente_ia.fase_per(numero_usciti()), **_riepilogo())

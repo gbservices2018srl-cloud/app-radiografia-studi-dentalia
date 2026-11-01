@@ -166,6 +166,13 @@ class Impostazioni(db.Model):
     soc_ultimo = db.Column(db.DateTime)      # ultima bozza creata dall'agente
     soc_avviso = db.Column(db.Boolean)       # email all'admin quando c'è una bozza da approvare
     soc_avviso_email = db.Column(db.String(200))  # dove arrivano gli avvisi social (vuoto = info@dentaliagroup.it)
+    soc_istruzioni = db.Column(db.Text)      # istruzioni dell'admin per l'agente IA
+    soc_sito = db.Column(db.Text)            # testo del sito letto dall'agente
+    soc_sito_il = db.Column(db.DateTime)
+    soc_ped = db.Column(db.Text)             # JSON: prossimi post del PED creati dall'IA
+    soc_ped_il = db.Column(db.DateTime)
+    soc_ia_errore = db.Column(db.String(500))
+    soc_ia_errore_il = db.Column(db.DateTime)
 
 
 class Contatto(db.Model):

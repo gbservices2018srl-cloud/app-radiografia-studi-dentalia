@@ -19,7 +19,7 @@
   <nav class="soc-schede">
     <a href="{{ url_for('gestione') }}" class="{{ 'on' if ep in ('gestione', 'social_post') }}">{{ ico('social', size=16) }} Post{% if conta.get('bozza') %} <b class="soc-pallino">{{ conta.get('bozza') }}</b>{% endif %}</a>
     <a href="{{ url_for('social_foto') }}" class="{{ 'on' if ep == 'social_foto' }}">{{ ico('foto', size=16) }} Foto</a>
-    <a href="{{ url_for('social_idee') }}" class="{{ 'on' if ep == 'social_idee' }}">{{ ico('idea', size=16) }} Idee e linea</a>
+    <a href="{{ url_for('social_idee') }}" class="{{ 'on' if ep == 'social_idee' }}">{{ ico('idea', size=16) }} Strategia</a>
     <a href="{{ url_for('social_collegamenti') }}" class="{{ 'on' if ep == 'social_collegamenti' }}">{{ ico('collega', size=16) }} Collegamenti</a>
     <a href="{{ url_for('social_agente') }}" class="{{ 'on' if ep == 'social_agente' }}">{{ ico('agente', size=16) }} Agente</a>
   </nav>

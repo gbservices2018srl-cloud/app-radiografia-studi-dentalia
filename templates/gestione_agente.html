@@ -9,12 +9,54 @@
   <div>
     <h2>Come lavora l'agente</h2>
     <ol class="soc-passi">
-      <li>Ogni <b>{{ imp.soc_ogni or 3 }} giorni</b> prende un'idea dal <a href="{{ url_for('social_idee') }}">piano editoriale</a>, cambiando tema ogni volta.</li>
-      <li>Prepara la <b>grafica Dentalia</b> e la didascalia, e la mette tra le bozze con la data di uscita.</li>
-      <li>{% if imp.soc_avviso is not false %}Ti manda un'email{% else %}Non ti avvisa via email (puoi accenderlo sotto){% endif %}: tu la guardi, la correggi e la <b>approvi</b>.</li>
-      <li>Il giorno previsto il post esce da solo su Instagram, Facebook e LinkedIn. Niente esce senza la tua approvazione.</li>
+      <li>Legge il <b>sito</b> e le tue <a href="{{ url_for('social_idee') }}">istruzioni</a> e crea da solo il <b>PED</b>, seguendo il percorso: avvio → crescita fan → fiducia → risposta diretta{% if not ia %} <small class="nl-err">(serve la chiave dell'IA: vedi Strategia)</small>{% endif %}.</li>
+      <li>Tiene sempre pronti i <b>prossimi {{ max_bozze }} post</b>, uno ogni {{ imp.soc_ogni or 3 }} giorni, con grafica Dentalia e didascalia. Se scarti o elimini una bozza, ne prepara subito un'altra.</li>
+      <li>{% if imp.soc_avviso is not false %}Ti avvisa via email{% else %}Non ti avvisa via email (puoi accenderlo sotto){% endif %}: tu la guardi, la correggi e la <b>approvi</b>.</li>
+      <li>Il giorno previsto il post esce da solo sui social collegati. Niente esce senza la tua approvazione.</li>
     </ol>
-    <p class="meta">Mai più di {{ max_bozze }} bozze in attesa: se non le approvi, l'agente aspetta. Ora ce ne sono <b>{{ bozze }}</b>.</p>
+    <p class="meta">Fase attuale: <b>{{ fase.nome }}</b>. Post pronti: <b>{{ coda }}</b> su {{ max_bozze }} (bozze da approvare: {{ bozze }}).</p>
+  </div>
+</section>
+
+<form method="post" class="card">
+  <h2>{{ ico('modifica', size=20) }} Impostazioni</h2>
+  <label class="crm-spunta"><input type="checkbox" name="attivo" value="1" {{ 'checked' if imp.soc_agente }}> <span><b>Agente acceso</b></span></label>
+  <div class="griglia" style="margin-top:10px">
+    <label>Una bozza ogni (giorni)<input type="number" name="ogni" min="1" max="30" value="{{ imp.soc_ogni or 3 }}"></label>
+    <label>Ora di uscita dei post (ora italiana)<input type="time" name="ora" value="{{ imp.soc_ora or '09:30' }}"></label>
+  </div>
+  <label class="crm-spunta" style="margin-top:10px"><input type="checkbox" name="avviso" value="1" {{ 'checked' if imp.soc_avviso is not false }}> <span>{{ ico('mail', size=15) }} Avvisami via email quando c'è una bozza {% if not smtp_ok %}<small class="nl-err">(serve la casella email configurata)</small>{% endif %}</span></label>
+  <label style="margin-top:8px;display:block">Indirizzo per gli avvisi<input type="email" name="avviso_email" value="{{ imp.soc_avviso_email or 'info@dentaliagroup.it' }}"></label>
+  <button class="btn oro" type="submit" style="margin-top:12px">{{ ico('ok') }} Salva</button>
+</form>
+
+<div class="card">
+  <h2>{{ ico('orologio', size=20) }} Stato</h2>
+  <ul class="soc-stato-lista">
+    <li>Ultima bozza preparata: <b>{{ imp.soc_ultimo | ora_locale if imp.soc_ultimo else 'mai' }}</b></li>
+    <li>Prossima: <b>{% if not imp.soc_agente %}agente spento{% elif coda >= max_bozze %}appena esce o scarti un post{% else %}entro 10 minuti{% endif %}</b></li>
+    {% if idea %}<li>Prossimo post del PED: <b>{{ idea.titolo | senza_asterischi }}</b> <small class="meta">({{ idea.tema }})</small></li>{% endif %}
+    {% if imp.soc_ia_errore %}<li class="nl-err">Ultimo errore dell'IA: {{ imp.soc_ia_errore }}</li>{% endif %}
+  </ul>
+  <form method="post" action="{{ url_for('social_agente_ora') }}">
+    <button class="btn sec-btn" {{ 'disabled' if bozze >= max_bozze }}>{{ ico('agente') }} Prepara una bozza adesso</button>
+  </form>
+</div>
+{% endblock %}
+{% block content %}
+{% include "_gestione_testa.html" %}
+
+<section class="card nl-avviso">
+  <span class="nl-avviso-ico">{{ ico('agente', size=28) }}</span>
+  <div>
+    <h2>Come lavora l'agente</h2>
+    <ol class="soc-passi">
+      <li>Legge il <b>sito</b> e le tue <a href="{{ url_for('social_idee') }}">istruzioni</a> e crea da solo il <b>PED</b>, seguendo il percorso: avvio → crescita fan → fiducia → risposta diretta{% if not ia %} <small class="nl-err">(serve la chiave dell'IA: vedi Strategia)</small>{% endif %}.</li>
+      <li>Tiene sempre pronti i <b>prossimi {{ max_bozze }} post</b>, uno ogni {{ imp.soc_ogni or 3 }} giorni, con grafica Dentalia e didascalia. Se scarti o elimini una bozza, ne prepara subito un'altra.</li>
+      <li>{% if imp.soc_avviso is not false %}Ti avvisa via email{% else %}Non ti avvisa via email (puoi accenderlo sotto){% endif %}: tu la guardi, la correggi e la <b>approvi</b>.</li>
+      <li>Il giorno previsto il post esce da solo sui social collegati. Niente esce senza la tua approvazione.</li>
+    </ol>
+    <p class="meta">Fase attuale: <b>{{ fase.nome }}</b>. Post pronti: <b>{{ coda }}</b> su {{ max_bozze }} (bozze da approvare: {{ bozze }}).</p>
   </div>
 </section>
 

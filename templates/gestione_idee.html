@@ -1,48 +1,81 @@
 {% extends "base.html" %}
 {% from "_icone.html" import ico %}
-{% block title %}Idee e linea · Social{% endblock %}
+{% block title %}Strategia · Social{% endblock %}
 {% block content %}
 {% include "_gestione_testa.html" %}
 
+{% if not ia %}
+<section class="card nl-avviso">
+  <span class="nl-avviso-ico">{{ ico('agente', size=28) }}</span>
+  <div>
+    <h2>Accendi il «cervello» dell'agente</h2>
+    <p>Per creare il PED da solo, leggendo il sito e le tue istruzioni, l'agente usa l'intelligenza artificiale Claude. Serve una chiave (una volta sola):</p>
+    <ol class="soc-passi">
+      <li>Vai su <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>, accedi e premi <b>Create Key</b> (nome: «Dentalia social»). Nella sezione Billing carica un piccolo credito: ogni PED di 6 post costa pochi centesimi.</li>
+      <li>Copia la chiave (inizia con <code>sk-ant-</code>).</li>
+      <li>Su <a href="https://dashboard.render.com" target="_blank" rel="noopener">Render</a> → <b>radiografia-studio-eu</b> → <b>Environment</b> → aggiungi <code>ANTHROPIC_API_KEY</code> con la chiave e salva.</li>
+    </ol>
+    <p class="meta">Finché la chiave non c'è, l'agente usa una raccolta di post pronti scritti da me.</p>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>{{ ico('pipeline', size=20) }} Il percorso</h2>
+  <p class="meta">Si parte dall'avvio dell'attività per far crescere la pagina e si arriva ai post a risposta diretta. L'agente passa da una fase all'altra da solo, in base ai post usciti ({{ usciti }} finora).</p>
+  <div class="soc-fasi">
+    {% for f in fasi %}
+    {% set prima = loop.index0 < fasi.index(fase) %}
+    <div class="soc-fase {{ 'on' if f.id == fase.id }} {{ 'fatta' if prima }}">
+      <span class="soc-fase-num">{% if prima %}{{ ico('ok', size=16) }}{% else %}{{ loop.index }}{% endif %}</span>
+      <b>{{ f.nome }}</b>
+      <small>{{ f.scopo }}</small>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
 <form method="post" class="card">
-  <input type="hidden" name="azione" value="linea">
-  <h2>{{ ico('stella', size=20) }} Linea editoriale</h2>
-  <p class="meta">Il promemoria di come parliamo sui social: a chi, con che tono, cosa evitare. Vale per te e per chi scrive i post.</p>
-  <textarea name="linea" rows="8">{{ linea }}</textarea>
-  <button class="btn" type="submit" style="margin-top:10px">{{ ico('ok') }} Salva</button>
+  <input type="hidden" name="azione" value="istruzioni">
+  <h2>{{ ico('nota', size=20) }} Le tue istruzioni per l'agente</h2>
+  <p class="meta">Scrivi come vuoi che lavori: a chi parlare, cosa mettere in evidenza, cosa evitare, promozioni o eventi in arrivo, tono. Hanno la precedenza su tutto il resto.</p>
+  <textarea name="istruzioni" rows="8" placeholder="Es. Parla ai titolari di studi dentistici in Sardegna. A novembre spingi il colloquio di valutazione gratuito. Non parlare di prezzi. Tono diretto, da collega.">{{ imp.soc_istruzioni or '' }}</textarea>
+  <button class="btn oro" type="submit" style="margin-top:10px">{{ ico('ok') }} Salva istruzioni</button>
 </form>
 
-<div class="card">
-  <h2>{{ ico('idea', size=20) }} Piano editoriale <small class="meta">({{ idee|length }} idee)</small></h2>
-  <p class="meta">L'agente prende da qui, a rotazione per tema, un'idea non ancora usata.
-    {% if prossima %}La prossima sarà: <b>{{ prossima.titolo | senza_asterischi }}</b>.{% endif %}</p>
+<section class="card">
+  <h2>{{ ico('studio', size=20) }} Cosa sa del sito</h2>
+  <p class="meta">L'agente legge le pagine di <a href="https://www.dentaliagroup.it" target="_blank" rel="noopener">dentaliagroup.it</a> e usa solo quelle informazioni come fatti su Dentalia. Si aggiorna da solo ogni 2 settimane.</p>
+  <p>{% if imp.soc_sito_il %}Ultima lettura: <b>{{ imp.soc_sito_il | ora_locale }}</b> · {{ '{:,}'.format(sito_caratteri).replace(',', '.') }} caratteri{% else %}Non ancora letto.{% endif %}</p>
+  <form method="post"><input type="hidden" name="azione" value="sito"><button class="btn sec-btn">{{ ico('richiama') }} Rileggi il sito adesso</button></form>
+</section>
+
+<section class="card">
+  <div class="soc-ped-testa">
+    <h2>{{ ico('calendario', size=20) }} Il PED creato dall'agente</h2>
+    {% if ia %}<form method="post" onsubmit="return confirm('Rifare da capo il PED con le istruzioni attuali?')"><input type="hidden" name="azione" value="ped"><button class="btn oro">{{ ico('agente') }} {{ 'Rifai il PED' if ped else 'Crea il PED adesso' }}</button></form>{% endif %}
+  </div>
+  {% if imp.soc_ia_errore %}<p class="avviso nl-err">{{ ico('x') }} Ultimo errore dell'IA ({{ imp.soc_ia_errore_il | ora_locale }}): {{ imp.soc_ia_errore }}</p>{% endif %}
+  {% if ped %}
+  <p class="meta">I prossimi post, in ordine. L'agente li trasforma in bozze man mano (uno ogni {{ imp.soc_ogni or 3 }} giorni) e quando la lista sta per finire ne scrive altri.{% if imp.soc_ped_il %} Creato il {{ imp.soc_ped_il | ora_locale }}{% if ia %} con {{ modello }}{% endif %}.{% endif %}</p>
   <div class="soc-idee">
-    {% for i in idee %}
+    {% for i in ped %}
     <div class="soc-idea">
-      <span class="soc-tema">{{ i.tema }}</span>
+      <span class="soc-tema">{{ loop.index }} · {{ (fasi|selectattr('id', 'equalto', i.fase)|first).nome if i.fase else '' }} · {{ i.tema }}</span>
       <b>{{ i.titolo | senza_asterischi }}</b>
-      <small class="meta">{{ scene.get(i.scena, i.scena) }}{% if usate.get(i.id) %} · usata {{ usate[i.id] }} volt{{ 'a' if usate[i.id] == 1 else 'e' }}{% endif %}{% if i.propria %} · tua{% endif %}</small>
+      <small class="meta">{{ scene.get(i.scena, i.scena) }}{% if i.obiettivo %} · obiettivo: {{ i.obiettivo }}{% endif %}</small>
+      <details><summary class="meta">Didascalia</summary><p class="soc-didascalia">{{ i.didascalia }}</p></details>
       <div class="azioni-riga">
-        <form method="post" action="{{ url_for('social_agente_ora') }}"><input type="hidden" name="idea" value="{{ i.id }}"><button class="btn sec-btn piccolo">{{ ico('piu') }} Crea bozza</button></form>
-        {% if i.propria %}<form method="post" onsubmit="return confirm('Togliere questa idea?')"><input type="hidden" name="azione" value="togli"><input type="hidden" name="id" value="{{ i.id }}"><button class="btn-icona" title="Togli">{{ ico('cestino', size=16) }}</button></form>{% endif %}
+        <form method="post" action="{{ url_for('social_agente_ora') }}"><input type="hidden" name="idea" value="{{ i.id }}"><button class="btn sec-btn piccolo">{{ ico('piu') }} Fanne la bozza ora</button></form>
+        <form method="post" onsubmit="return confirm('Togliere questo post dal PED?')"><input type="hidden" name="azione" value="togli"><input type="hidden" name="id" value="{{ i.id }}"><button class="btn-icona" title="Togli">{{ ico('cestino', size=16) }}</button></form>
       </div>
     </div>
     {% endfor %}
   </div>
-</div>
-
-<form method="post" class="card">
-  <input type="hidden" name="azione" value="aggiungi">
-  <h2>{{ ico('piu', size=20) }} Aggiungi un'idea</h2>
-  <div class="griglia">
-    <label>Tema<input name="tema" list="temi2"><datalist id="temi2">{% for t in temi %}<option value="{{ t }}">{% endfor %}</datalist></label>
-    <label>Modello grafica<select name="scena">{% for k, et in scene.items() %}<option value="{{ k }}">{{ et }}</option>{% endfor %}</select></label>
-    <label>Foto <small>(per i modelli con foto)</small><select name="foto"><option value="">—</option>{% for f in foto_base %}<option value="base:{{ f }}">{{ f }}</option>{% endfor %}</select></label>
-  </div>
-  <label>Frase grande <small>(*parole in oro*)</small><input name="titolo" required></label>
-  <label>Frase piccola <small>(facoltativa)</small><input name="testo"></label>
-  <label>Punti (uno per riga, per l'elenco)<textarea name="punti" rows="3"></textarea></label>
-  <label>Didascalia del post<textarea name="didascalia" rows="6" required></textarea></label>
-  <button class="btn oro" type="submit" style="margin-top:10px">{{ ico('piu') }} Aggiungi al piano</button>
-</form>
+  {% elif ia %}
+  <p class="meta">Il PED non c'è ancora: lo crea l'agente al primo giro, oppure premi «Crea il PED adesso».</p>
+  {% else %}
+  <p class="meta">Il PED lo crea l'agente quando la chiave dell'IA è attiva.</p>
+  {% endif %}
+</section>
 {% endblock %}

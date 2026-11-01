@@ -699,3 +699,15 @@ a.per-passo:hover { transform: translateY(-1px); }
   .soc-anteprima { position: static; order: -1; max-width: 340px; margin: 0 auto; }
   .soc-griglia { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 }
+
+.soc-fasi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.soc-fase { border: 1px solid var(--bordo); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; background: #fff; }
+.soc-fase small { color: var(--tenue); line-height: 1.4; }
+.soc-fase.on { border: 2px solid var(--oro); background: var(--oro-chiaro); }
+.soc-fase.fatta { opacity: .65; }
+.soc-fase-num { width: 30px; height: 30px; border-radius: 50%; background: var(--primario); color: var(--oro); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+.soc-fase.on .soc-fase-num { background: var(--oro); color: var(--primario); }
+.soc-ped-testa { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.soc-ped-testa h2 { margin: 0; }
+.soc-didascalia { white-space: pre-line; font-size: .85rem; color: var(--testo); margin: 6px 0 0; }
+@media (max-width: 760px) { .soc-fasi { grid-template-columns: 1fr 1fr; } }
