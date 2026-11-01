@@ -29,6 +29,8 @@ for prefisso in ("postgres://", "postgresql://"):
         break
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-cambiami")
+# connessioni al database sempre verificate prima dell'uso (evita errori SSL su connessioni vecchie)
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True, "pool_recycle": 280}
 
 db = SQLAlchemy(app)
 

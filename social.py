@@ -47,8 +47,9 @@ FOTO_BASE = ["foto-reception.jpg", "foto-camice-member.jpg", "foto-porta-member.
              "foto-montagne.jpg"]
 SCENE_NOMI = {"titolo": "Frase grande (blu)", "foto": "Foto + frase", "lista": "Elenco numerato",
               "domanda": "Domanda (chiaro)", "cta": "Invito con pulsante", "immagine": "Solo foto"}
-GRAPH_IG = "https://graph.instagram.com/v21.0"
-GRAPH_FB = "https://graph.facebook.com/v21.0"
+META_VERSIONE = os.environ.get("META_VERSION", "v24.0")
+GRAPH_IG = f"https://graph.instagram.com/{META_VERSIONE}"
+GRAPH_FB = f"https://graph.facebook.com/{META_VERSIONE}"
 LINKEDIN = "https://api.linkedin.com/rest"
 _lock = threading.Lock()
 
@@ -225,35 +226,39 @@ def ig_base(imp):
 
 
 def verifica_instagram(token, user_id=""):
-    """Riconosce il tipo di token. Restituisce (modo, user_id, username, token_da_salvare)."""
+    """Riconosce il tipo di token. Restituisce (modo, user_id, username, token_da_salvare).
+    Se non riesce, l'errore riporta le risposte di Meta per capire cosa non va."""
     token = token.strip()
-    try:  # token «Instagram Login» (graph.instagram.com)
-        _, _, d = http("GET", f"{GRAPH_IG}/me?" + urllib.parse.urlencode(
-            {"fields": "user_id,username", "access_token": token}))
-        if d.get("username"):
-            return "instagram", str(d.get("user_id") or d.get("id")), d["username"], token
-    except ErroreSocial:
-        pass
     user_id = re.sub(r"\D", "", user_id or "")
-    if user_id:  # token di Meta (es. utente di sistema, «accesso unificato»): basta l'ID dell'account Instagram
+    errori = []
+    if not token.startswith("EA"):  # token «Instagram Login» (di solito inizia con IG)
+        try:
+            _, _, d = http("GET", f"{GRAPH_IG}/me?" + urllib.parse.urlencode(
+                {"fields": "user_id,username", "access_token": token}))
+            if d.get("username"):
+                return "instagram", str(d.get("user_id") or d.get("id")), d["username"], token
+        except ErroreSocial as e:
+            errori.append(f"instagram.com: {e}")
+    if user_id:  # token di Meta (utente di sistema, «accesso unificato» o Facebook): basta l'ID account Instagram
         try:
             _, _, d = http("GET", f"{GRAPH_FB}/{user_id}?" + urllib.parse.urlencode(
-                {"fields": "username", "access_token": token}))
-            if d.get("username"):
-                return "facebook", user_id, d["username"], token
-        except ErroreSocial:
-            pass
-    # token Facebook di un utente: cerca la Pagina collegata all'account Instagram professionale
-    try:
+                {"fields": "id,username", "access_token": token}))
+            if d.get("username") or d.get("id"):
+                return "facebook", user_id, d.get("username") or user_id, token
+        except ErroreSocial as e:
+            errori.append(f"account {user_id}: {e}")
+    try:  # token Facebook di un utente: cerca la Pagina collegata all'account Instagram professionale
         _, _, d = http("GET", f"{GRAPH_FB}/me/accounts?" + urllib.parse.urlencode(
             {"fields": "name,access_token,instagram_business_account{id,username}", "access_token": token}))
-    except ErroreSocial as err:
-        raise ErroreSocial(f"token non accettato da Meta ({err}). Se è un token di sistema, scrivi anche l'ID account Instagram")
-    for pagina in d.get("data", []):
-        ig = pagina.get("instagram_business_account")
-        if ig and (not user_id or ig.get("id") == user_id):
-            return "facebook", ig["id"], ig.get("username") or pagina.get("name"), pagina.get("access_token") or token
-    raise ErroreSocial("nessun account Instagram professionale trovato con questo token")
+        for pagina in d.get("data", []):
+            ig = pagina.get("instagram_business_account")
+            if ig and (not user_id or ig.get("id") == user_id):
+                return "facebook", ig["id"], ig.get("username") or pagina.get("name"), pagina.get("access_token") or token
+    except ErroreSocial as e:
+        errori.append(f"pagine: {e}")
+    if token.startswith("EA") and not errori:
+        errori.append("token di Meta senza Pagina collegata: scrivi anche l'ID account Instagram")
+    raise ErroreSocial("nessun account Instagram trovato. Risposte di Meta → " + " | ".join(errori or ["nessuna"]))
 
 
 def pubblica_instagram(p, imp):
@@ -831,6 +836,9 @@ def social_collegamenti():
             db.session.commit()
         except ErroreSocial as err:
             db.session.rollback()
+            if azione == "instagram" and f.get("user_id", "").strip() and not imp.soc_ig_token:
+                imp.soc_ig_user = re.sub(r"\D", "", f.get("user_id"))[:40] or None
+                db.session.commit()
             flash(f"Collegamento non riuscito: {err}")
         return redirect(url_for("social_collegamenti"))
     return render_template("gestione_collegamenti.html", nascondi=nascondi, li_versione=li_versione(),
