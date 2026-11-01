@@ -217,23 +217,32 @@ Crea i prossimi {quanti} post del PED, in ordine di uscita (uno ogni pochi giorn
     dati = estrai_json(risposta)
     if isinstance(dati, dict):
         dati = dati.get("post") or dati.get("ped") or [dati]
-    post = []
-    for d in dati:
-        if not isinstance(d, dict) or not d.get("didascalia") or not (d.get("titolo") or d.get("scena") == "immagine"):
-            continue
-        scena = d.get("scena") if d.get("scena") in ("titolo", "foto", "lista", "domanda", "cta") else "titolo"
-        foto = d.get("foto") if scena == "foto" else None
-        if scena == "foto" and foto not in ("foto-reception.jpg", "foto-camice-member.jpg", "foto-porta-member.jpg",
-                                            "foto-biglietto.jpg", "foto-montagne.jpg"):
-            foto = "foto-reception.jpg"
-        post.append({
-            "id": "ia-" + secrets.token_hex(5),
-            "fase": d.get("fase") if d.get("fase") in [f["id"] for f in FASI] else fase["id"],
-            "tema": str(d.get("tema") or "")[:60], "obiettivo": str(d.get("obiettivo") or "")[:80],
-            "scena": scena, "titolo": str(d.get("titolo") or "")[:200], "testo": str(d.get("testo") or "")[:200],
-            "punti": [str(x)[:60] for x in (d.get("punti") or [])][:4], "foto": foto,
-            "didascalia": str(d["didascalia"])[:2150], "creato": datetime.utcnow().strftime("%Y-%m-%d"),
-        })
+    post = [x for x in (normalizza_post(d, fase["id"]) for d in dati) if x]
     if not post:
         raise ErroreIA("l'IA non ha proposto post validi")
     return post
+
+
+FOTO_OK = ("foto-reception.jpg", "foto-camice-member.jpg", "foto-porta-member.jpg", "foto-biglietto.jpg",
+           "foto-montagne.jpg")
+
+
+def normalizza_post(d, fase_default="avvio"):
+    """Controlla e ripulisce un post proposto (dall'IA o dall'agente programmato). None se non valido."""
+    if not isinstance(d, dict) or not str(d.get("didascalia") or "").strip() or not str(d.get("titolo") or "").strip():
+        return None
+    scena = d.get("scena") if d.get("scena") in ("titolo", "foto", "lista", "domanda", "cta") else "titolo"
+    foto = d.get("foto") if scena == "foto" else None
+    if scena == "foto" and foto not in FOTO_OK:
+        foto = "foto-reception.jpg"
+    punti = d.get("punti") or []
+    if isinstance(punti, str):
+        punti = [r for r in punti.splitlines() if r.strip()]
+    return {
+        "id": "ia-" + secrets.token_hex(5),
+        "fase": d.get("fase") if d.get("fase") in [f["id"] for f in FASI] else fase_default,
+        "tema": str(d.get("tema") or "")[:60], "obiettivo": str(d.get("obiettivo") or "")[:80],
+        "scena": scena, "titolo": str(d.get("titolo"))[:200], "testo": str(d.get("testo") or "")[:200],
+        "punti": [str(x)[:60] for x in punti][:4], "foto": foto,
+        "didascalia": str(d["didascalia"])[:2150], "creato": datetime.utcnow().strftime("%Y-%m-%d"),
+    }

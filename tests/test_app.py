@@ -933,6 +933,38 @@ class TestApp(unittest.TestCase):
         self.assertIn("\\@tutti", testo)
 
 
+    def test_41_social_api_agente(self):
+        os.environ["AGENTE_CHIAVE"] = "chiave-test"
+        c = m.app.test_client()
+        self.assertEqual(c.get("/gestione/api/contesto").status_code, 403)
+        self.assertEqual(c.get("/gestione/api/contesto", headers={"Authorization": "Bearer no"}).status_code, 403)
+        h = {"Authorization": "Bearer chiave-test"}
+        with m.app.app_context():
+            m.SocialPost.query.filter(m.SocialPost.stato.in_(("bozza", "approvato"))).delete()
+            imp = m.impostazioni()
+            imp.soc_agente, imp.soc_istruzioni = True, "Parla ai titolari"
+            m.db.session.commit()
+        ctx = c.get("/gestione/api/contesto", headers=h).get_json()
+        self.assertTrue(ctx["puo_creare_bozza"])
+        self.assertEqual(ctx["istruzioni_del_titolare"], "Parla ai titolari")
+        self.assertIn("id", ctx["fase_attuale"])
+        self.assertEqual(c.post("/gestione/api/bozza", headers=h, json={"titolo": "x"}).status_code, 400)
+        r = c.post("/gestione/api/bozza", headers=h, json={"fase": "avvio", "tema": "Chi siamo", "scena": "lista",
+                                                          "titolo": "Tre *cose*", "punti": "Uno\nDue",
+                                                          "didascalia": "Ciao #Dentalia"})
+        self.assertEqual(r.status_code, 200, r.get_data(as_text=True))
+        with m.app.app_context():
+            p = m.db.session.get(m.SocialPost, r.get_json()["id"])
+            self.assertEqual((p.stato, p.punti), ("bozza", "Uno\nDue"))
+            self.assertIsNotNone(p.media_id)
+        c.post("/gestione/api/bozza", headers=h, json={"titolo": "Due", "didascalia": "x"})
+        self.assertEqual(c.post("/gestione/api/bozza", headers=h, json={"titolo": "Tre", "didascalia": "x"}).status_code, 409)
+        self.assertTrue(c.post("/gestione/api/pubblica", headers=h).get_json()["ok"])
+        with m.app.app_context():
+            imp = m.impostazioni()
+            imp.soc_agente = False
+            m.db.session.commit()
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

@@ -4,21 +4,13 @@
 {% block content %}
 {% include "_gestione_testa.html" %}
 
-{% if not ia %}
 <section class="card nl-avviso">
   <span class="nl-avviso-ico">{{ ico('agente', size=28) }}</span>
   <div>
-    <h2>Accendi il «cervello» dell'agente</h2>
-    <p>Per creare il PED da solo, leggendo il sito e le tue istruzioni, l'agente usa l'intelligenza artificiale Claude. Serve una chiave (una volta sola):</p>
-    <ol class="soc-passi">
-      <li>Vai su <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>, accedi e premi <b>Create Key</b> (nome: «Dentalia social»). Nella sezione Billing carica un piccolo credito: ogni PED di 6 post costa pochi centesimi.</li>
-      <li>Copia la chiave (inizia con <code>sk-ant-</code>).</li>
-      <li>Su <a href="https://dashboard.render.com" target="_blank" rel="noopener">Render</a> → <b>radiografia-studio-eu</b> → <b>Environment</b> → aggiungi <code>ANTHROPIC_API_KEY</code> con la chiave e salva.</li>
-    </ol>
-    <p class="meta">Finché la chiave non c'è, l'agente usa una raccolta di post pronti scritti da me.</p>
+    <h2>Chi scrive i post</h2>
+    <p>L'<b>agente Claude</b> lavora da solo ogni 3 giorni: legge il sito e le tue istruzioni qui sotto, guarda a che punto è il percorso e i post già fatti, scrive il post successivo del PED e lo carica tra le bozze. Tu ricevi l'email a info@, lo approvi e lui esce da solo.</p>
   </div>
 </section>
-{% endif %}
 
 <section class="card">
   <h2>{{ ico('pipeline', size=20) }} Il percorso</h2>
@@ -52,7 +44,7 @@
 
 <section class="card">
   <div class="soc-ped-testa">
-    <h2>{{ ico('calendario', size=20) }} Il PED creato dall'agente</h2>
+    <h2>{{ ico('calendario', size=20) }} Post già pianificati</h2>
     {% if ia %}<form method="post" onsubmit="return confirm('Rifare da capo il PED con le istruzioni attuali?')"><input type="hidden" name="azione" value="ped"><button class="btn oro">{{ ico('agente') }} {{ 'Rifai il PED' if ped else 'Crea il PED adesso' }}</button></form>{% endif %}
   </div>
   {% if imp.soc_ia_errore %}<p class="avviso nl-err">{{ ico('x') }} Ultimo errore dell'IA ({{ imp.soc_ia_errore_il | ora_locale }}): {{ imp.soc_ia_errore }}</p>{% endif %}
@@ -72,10 +64,8 @@
     </div>
     {% endfor %}
   </div>
-  {% elif ia %}
-  <p class="meta">Il PED non c'è ancora: lo crea l'agente al primo giro, oppure premi «Crea il PED adesso».</p>
   {% else %}
-  <p class="meta">Il PED lo crea l'agente quando la chiave dell'IA è attiva.</p>
+  <p class="meta">L'agente scrive i post uno alla volta: li trovi in <a href="{{ url_for('gestione') }}">Post → Da approvare</a>, con la fase e il tema.</p>
   {% endif %}
 </section>
 {% endblock %}

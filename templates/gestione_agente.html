@@ -9,7 +9,7 @@
   <div>
     <h2>Come lavora l'agente</h2>
     <ol class="soc-passi">
-      <li>Legge il <b>sito</b> e le tue <a href="{{ url_for('social_idee') }}">istruzioni</a> e crea da solo il <b>PED</b>, seguendo il percorso: avvio → crescita fan → fiducia → risposta diretta{% if not ia %} <small class="nl-err">(serve la chiave dell'IA: vedi Strategia)</small>{% endif %}.</li>
+      <li>Legge il <b>sito</b> e le tue <a href="{{ url_for('social_idee') }}">istruzioni</a> e crea da solo il <b>PED</b>, seguendo il percorso: avvio → crescita fan → fiducia → risposta diretta.</li>
       <li>Tiene sempre pronti i <b>prossimi {{ max_bozze }} post</b>, uno ogni {{ imp.soc_ogni or 3 }} giorni, con grafica Dentalia e didascalia. Se scarti o elimini una bozza, ne prepara subito un'altra.</li>
       <li>{% if imp.soc_avviso is not false %}Ti avvisa via email{% else %}Non ti avvisa via email (puoi accenderlo sotto){% endif %}: tu la guardi, la correggi e la <b>approvi</b>.</li>
       <li>Il giorno previsto il post esce da solo sui social collegati. Niente esce senza la tua approvazione.</li>
@@ -34,7 +34,7 @@
   <h2>{{ ico('orologio', size=20) }} Stato</h2>
   <ul class="soc-stato-lista">
     <li>Ultima bozza preparata: <b>{{ imp.soc_ultimo | ora_locale if imp.soc_ultimo else 'mai' }}</b></li>
-    <li>Prossima: <b>{% if not imp.soc_agente %}agente spento{% elif not ia %}in attesa della chiave dell'IA (vedi Strategia){% elif coda >= max_bozze %}appena esce o scarti un post{% else %}entro 10 minuti{% endif %}</b></li>
+    <li>Prossima: <b>{% if not imp.soc_agente %}agente spento{% elif coda >= max_bozze %}appena esce o scarti un post{% else %}al prossimo giro dell'agente Claude (ogni 3 giorni){% endif %}</b></li>
     {% if idea %}<li>Prossimo post del PED: <b>{{ idea.titolo | senza_asterischi }}</b> <small class="meta">({{ idea.tema }})</small></li>{% endif %}
     {% if imp.soc_ia_errore %}<li class="nl-err">Ultimo errore dell'IA: {{ imp.soc_ia_errore }}</li>{% endif %}
   </ul>

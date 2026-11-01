@@ -18,6 +18,7 @@ import io
 import json
 import os
 import re
+import hmac
 import secrets
 import sys
 import threading
@@ -861,6 +862,79 @@ def social_agente_ora():
         return redirect(url_for("social_idee"))
     flash("Ecco la nuova bozza: controllala e approvala.")
     return redirect(url_for("social_post", pid=p.id))
+
+
+# ------------------------------------------------------------------ API per l'agente programmato (Claude)
+def chiave_agente():
+    return os.environ.get("AGENTE_CHIAVE", "").strip()
+
+
+def agente_autorizzato():
+    k = chiave_agente()
+    dato = (request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            or request.headers.get("X-Dentalia-Agente", "").strip())
+    return bool(k) and hmac.compare_digest(dato, k)
+
+
+@app.get("/gestione/api/contesto")
+def social_api_contesto():
+    """Tutto quello che serve all'agente per scrivere il prossimo post."""
+    if not agente_autorizzato():
+        abort(403)
+    imp = impostazioni()
+    usciti = numero_usciti()
+    fase = agente_ia.fase_per(usciti)
+    recenti = SocialPost.query.filter(SocialPost.stato != "scartato").order_by(SocialPost.id.desc()).limit(40).all()
+    return {
+        "agente_acceso": bool(imp.soc_agente), "puo_creare_bozza": bool(imp.soc_agente) and in_coda() < MAX_BOZZE,
+        "post_pronti": in_coda(), "massimo_pronti": MAX_BOZZE, "post_usciti_o_in_programma": usciti,
+        "fase_attuale": fase, "fasi": agente_ia.FASI, "istruzioni_del_titolare": imp.soc_istruzioni or "",
+        "sito": agente_ia.SITO, "regole_meta": agente_ia.REGOLE_META, "grafiche": agente_ia.SCENE_SPIEGATE,
+        "canali_collegati": [c for c in CANALI if canale_pronto(c, imp)],
+        "post_recenti": [{"titolo": senza_asterischi(p.titolo), "tema": p.tema, "stato": p.stato,
+                          "data": p.data_prevista.isoformat() if p.data_prevista else None} for p in recenti],
+        "formato_bozza": {"fase": "id della fase", "tema": "2-3 parole", "obiettivo": "breve", "scena":
+                          "titolo|foto|lista|domanda|cta", "titolo": "frase grafica con *parole oro*",
+                          "testo": "facoltativo", "punti": ["per lista/cta"], "foto": "solo scena foto",
+                          "didascalia": "testo completo del post con hashtag"},
+    }
+
+
+@app.post("/gestione/api/bozza")
+def social_api_bozza():
+    """L'agente carica UNA bozza (mai pubblicata direttamente): l'app disegna la grafica e avvisa info@."""
+    if not agente_autorizzato():
+        abort(403)
+    imp = impostazioni()
+    if in_coda() >= MAX_BOZZE and not request.args.get("forza"):
+        return {"ok": False, "errore": f"ci sono già {MAX_BOZZE} post pronti"}, 409
+    dati = request.get_json(silent=True) or {}
+    idea = agente_ia.normalizza_post(dati, agente_ia.fase_per(numero_usciti())["id"])
+    if not idea:
+        return {"ok": False, "errore": "servono almeno titolo e didascalia"}, 400
+    ogni = imp.soc_ogni or 3
+    ultimo_prog = (db.session.query(db.func.max(SocialPost.data_prevista))
+                   .filter(SocialPost.stato.in_(("bozza", "approvato"))).scalar())
+    ultimo_usc = db.session.query(db.func.max(SocialPost.pubblicato_il)).filter_by(stato="pubblicato").scalar()
+    data = prossima_data(giorni=1)
+    if ultimo_prog and ultimo_prog > datetime.utcnow():
+        data = max(data, prossima_data(ultimo_prog, giorni=ogni))
+    elif ultimo_usc:
+        data = max(data, prossima_data(ultimo_usc, giorni=ogni))
+    p = post_da_idea(idea, data=data)
+    imp.soc_ultimo = datetime.utcnow()
+    db.session.commit()
+    if imp.soc_avviso is not False:
+        avvisa_bozza(p)
+    return {"ok": True, "id": p.id, "uscita": p.data_prevista.isoformat(),
+            "immagine": link_media(p), "pagina": f"{app_url()}{url_for('social_post', pid=p.id)}"}
+
+
+@app.post("/gestione/api/pubblica")
+def social_api_pubblica():
+    if not agente_autorizzato():
+        abort(403)
+    return {"ok": True, "pubblicati": giro_pubblicazione()}
 
 
 @app.route("/gestione/foto", methods=["GET", "POST"])
