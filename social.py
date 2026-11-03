@@ -244,7 +244,8 @@ def disegna(p):
 
 def link_media(p):
     m = db.session.get(SocialMedia, p.media_id) if p.media_id else None
-    return f"{app_url()}{url_for('social_media', token=m.token)}" if m else None
+    # niente url_for: deve funzionare anche nel controllo automatico, fuori da una richiesta web
+    return f"{app_url()}/m/{m.token}.jpg" if m else None
 
 
 def post_da_idea(idea, data=None, utente_id=None):
@@ -636,6 +637,23 @@ def _ciclo():
             except Exception:  # noqa: BLE001
                 pass
         time.sleep(10 * 60)
+
+
+def ripristina_errori_url():
+    """Una tantum (03/11): i post finiti in errore per «SERVER_NAME» tornano programmati e partono al prossimo giro."""
+    try:
+        with app.app_context():
+            for p in SocialPost.query.filter(SocialPost.stato == "errore",
+                                             SocialPost.errore.like("%SERVER_NAME%")).all():
+                p.stato, p.errore = "approvato", None
+                esiti = {c: e for c, e in esiti_di(p).items() if e.get("ok")}
+                p.esiti = json.dumps(esiti)
+            db.session.commit()
+    except Exception as err:  # noqa: BLE001
+        print(f"SOCIAL: ripristino non riuscito: {err}", flush=True)
+
+
+ripristina_errori_url()
 
 
 if not app.config.get("TESTING") and os.environ.get("SOCIAL_AUTO", "1") != "0" and "unittest" not in sys.modules:

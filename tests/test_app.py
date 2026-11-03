@@ -836,6 +836,8 @@ class TestApp(unittest.TestCase):
         self.assertEqual((img.status_code, img.mimetype), (200, "image/jpeg"))
         self.assertEqual(m.app.test_client().get("/m/sbagliato.jpg").status_code, 404)
         self.assertEqual(self.admin.get(f"/gestione/post/{pid}/immagine").status_code, 200)
+        with m.app.app_context():   # il controllo automatico gira fuori da una richiesta web
+            self.assertTrue(social.link_media(db_get(m.SocialPost, pid)).endswith(f"/m/{token}.jpg"))
         # collego i due canali (in test nessuna chiamata esterna) e il giro pubblica
         self.admin.post("/gestione/collegamenti", data={"azione": "instagram", "token": "tok-ig"})
         self.admin.post("/gestione/collegamenti", data={"azione": "linkedin", "token": "tok-li", "org": "555"})
