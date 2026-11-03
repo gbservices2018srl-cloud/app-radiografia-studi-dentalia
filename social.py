@@ -28,6 +28,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+from types import SimpleNamespace
 from email.utils import formataddr
 from zoneinfo import ZoneInfo
 
@@ -341,7 +342,7 @@ def verifica_instagram(token, user_id=""):
 
 
 def pubblica_instagram(p, imp):
-    url_img = link_media(p)
+    url_img = getattr(p, "link_img", None) or link_media(p)
     base, tok, uid = ig_base(imp), imp.soc_ig_token, imp.soc_ig_user
     _, _, d = http("POST", f"{base}/{uid}/media", dati={"image_url": url_img, "caption": (p.didascalia or "")[:2200],
                                                         "access_token": tok})
@@ -401,7 +402,7 @@ def verifica_facebook(token, pagina=""):
 
 def pubblica_facebook(p, imp):
     _, _, d = http("POST", f"{GRAPH_FB}/{imp.soc_fb_page}/photos",
-                   dati={"url": link_media(p), "message": p.didascalia or "", "access_token": imp.soc_fb_token})
+                   dati={"url": getattr(p, "link_img", None) or link_media(p), "message": p.didascalia or "", "access_token": imp.soc_fb_token})
     pid = d.get("post_id") or d.get("id")
     if not pid:
         raise ErroreSocial(f"Facebook non ha pubblicato: {d}")
@@ -447,7 +448,7 @@ def verifica_linkedin(token, org=""):
 
 
 def pubblica_linkedin(p, imp):
-    m = db.session.get(SocialMedia, p.media_id)
+    dati_img = getattr(p, "dati_img", None) or db.session.get(SocialMedia, p.media_id).dati
     autore = f"urn:li:organization:{imp.soc_li_org}"
     h = li_headers(imp)
     _, _, d = http("POST", f"{LINKEDIN}/images?action=initializeUpload",
@@ -455,7 +456,7 @@ def pubblica_linkedin(p, imp):
     valore = d.get("value", {})
     if not valore.get("uploadUrl"):
         raise ErroreSocial(f"LinkedIn non ha dato l'indirizzo di caricamento: {d}")
-    http("PUT", valore["uploadUrl"], dati=m.dati, headers={"Authorization": h["Authorization"],
+    http("PUT", valore["uploadUrl"], dati=dati_img, headers={"Authorization": h["Authorization"],
                                                            "Content-Type": "image/jpeg"}, grezzo=True)
     corpo = {"author": autore, "commentary": testo_linkedin(p.didascalia), "visibility": "PUBLIC",
              "distribution": {"feedDistribution": "MAIN_FEED", "targetEntities": [],
@@ -468,48 +469,88 @@ def pubblica_linkedin(p, imp):
 
 
 # ------------------------------------------------------------------ pubblicazione
+CAMPI_COLLEGAMENTO = ("soc_ig_token", "soc_ig_user", "soc_ig_modo", "soc_fb_page", "soc_fb_token",
+                      "soc_li_token", "soc_li_org")
+
+
+def _salva_esiti(pid, esiti, **campi):
+    """Scrive gli esiti subito (una transazione breve), così un problema dopo non fa perdere quelli riusciti."""
+    for tentativo in (1, 2):
+        try:
+            post = db.session.get(SocialPost, pid)
+            post.esiti = json.dumps(esiti)
+            for k, v in campi.items():
+                setattr(post, k, v)
+            db.session.commit()
+            return post
+        except Exception:  # noqa: BLE001  connessione caduta: si riprova una volta con una nuova
+            db.session.rollback()
+            if tentativo == 2:
+                raise
+
+
 def pubblica(p):
-    """Pubblica il post sui canali scelti e collegati (salta quelli già riusciti). Restituisce gli esiti."""
+    """Pubblica il post sui canali scelti e collegati (salta quelli già riusciti). Restituisce gli esiti.
+    Durante le chiamate a Instagram/Facebook/LinkedIn nessuna transazione resta aperta sul database."""
     imp = impostazioni()
-    esiti = esiti_di(p)
     if not p.media_id:
         disegna(p)
         db.session.commit()
-    for canale in canali_di(p):
+    pid, esiti, canali = p.id, esiti_di(p), canali_di(p)
+    media = db.session.get(SocialMedia, p.media_id)
+    foto = SimpleNamespace(id=pid, didascalia=p.didascalia, titolo=p.titolo, media_id=p.media_id,
+                           link_img=link_media(p), dati_img=media.dati if media else None)
+    conf = SimpleNamespace(**{k: getattr(imp, k) for k in CAMPI_COLLEGAMENTO})
+    pronti = {c: canale_pronto(c, imp) for c in canali}
+    db.session.commit()   # chiude la transazione prima delle chiamate esterne
+    for canale in canali:
         if esiti.get(canale, {}).get("ok"):
             continue
-        pronto = canale_pronto(canale, imp)
-        if not pronto:
+        if not pronti[canale]:
             esiti[canale] = {"ok": False, "manuale": True, "errore": "canale non collegato: pubblicalo a mano"}
             continue
         try:
             if app.config.get("TESTING"):
-                app.config.setdefault("SOCIAL_PUBBLICATI", []).append((canale, p.id))
-                r = {"id": f"finto-{canale}-{p.id}", "link": None}
+                app.config.setdefault("SOCIAL_PUBBLICATI", []).append((canale, pid))
+                r = {"id": f"finto-{canale}-{pid}", "link": None}
             elif canale == "instagram":
-                r = pubblica_instagram(p, imp)
+                r = pubblica_instagram(foto, conf)
             elif canale == "facebook":
-                r = pubblica_facebook(p, imp)
+                r = pubblica_facebook(foto, conf)
             else:
-                r = pubblica_linkedin(p, imp)
+                r = pubblica_linkedin(foto, conf)
             esiti[canale] = {"ok": True, "id": r.get("id"), "link": r.get("link"),
                              "il": datetime.utcnow().strftime("%Y-%m-%d %H:%M")}
+            _salva_esiti(pid, esiti)
         except Exception as err:  # noqa: BLE001  l'errore resta scritto sul post
             esiti[canale] = {"ok": False, "errore": str(err)[:400]}
-    p.esiti = json.dumps(esiti)
-    riusciti = [c for c in canali_di(p) if esiti.get(c, {}).get("ok")]
-    errori = [f"{CANALI[c]}: {esiti[c].get('errore')}" for c in canali_di(p)
+    riusciti = [c for c in canali if esiti.get(c, {}).get("ok")]
+    errori = [f"{CANALI[c]}: {esiti[c].get('errore')}" for c in canali
               if not esiti.get(c, {}).get("ok") and not esiti.get(c, {}).get("manuale")]
     if errori:
-        p.stato, p.errore = "errore", " · ".join(errori)[:500]
-    else:
-        p.stato, p.errore = "pubblicato", None
-        p.pubblicato_il = datetime.utcnow() if riusciti else p.pubblicato_il
-        if not riusciti:  # nessun canale collegato: resta da fare a mano
-            p.stato = "approvato"
-            p.errore = "Nessun canale collegato: scarica l'immagine, copia il testo e segnalo come pubblicato."
-    db.session.commit()
+        campi = {"stato": "errore", "errore": " · ".join(errori)[:500]}
+    elif riusciti:
+        campi = {"stato": "pubblicato", "errore": None, "pubblicato_il": datetime.utcnow()}
+    else:  # nessun canale collegato: resta da fare a mano
+        campi = {"stato": "approvato",
+                 "errore": "Nessun canale collegato: scarica l'immagine, copia il testo e segnalo come pubblicato."}
+    _salva_esiti(pid, esiti, **campi)
     return esiti
+
+
+def sblocca_interrotti():
+    """Un post rimasto «in pubblicazione» per più di 20 minuti (processo riavviato, connessione caduta) passa in
+    errore: NON si ripubblica da solo, per non rischiare doppioni. L'admin controlla e preme «Riprova»."""
+    limite = datetime.utcnow() - timedelta(minutes=20)
+    for p in SocialPost.query.filter(SocialPost.stato == "in_pubblicazione",
+                                     db.or_(SocialPost.approvato_il.is_(None), SocialPost.approvato_il < limite),
+                                     SocialPost.data_prevista < limite).all():
+        fatti = [CANALI[c] for c, e in esiti_di(p).items() if e.get("ok")]
+        p.stato = "errore"
+        p.errore = ("Pubblicazione interrotta a metà. Controlla su Instagram e Facebook se il post è uscito: "
+                    "se non c'è premi «Riprova a pubblicare», se c'è premi «L'ho pubblicato a mano»."
+                    + (f" Già riuscito: {', '.join(fatti)}." if fatti else ""))
+    db.session.commit()
 
 
 def giro_pubblicazione():
@@ -524,6 +565,7 @@ def giro_pubblicazione():
         collegati = [c for c in CANALI if canale_pronto(c, imp)]
         if not collegati:
             return 0
+        sblocca_interrotti()
         pronti = SocialPost.query.filter(SocialPost.stato == "approvato", SocialPost.data_prevista <= adesso) \
             .order_by(SocialPost.data_prevista).limit(20).all()
         for p in pronti:
@@ -625,17 +667,18 @@ def avvisa_bozza(p):
 def _ciclo():
     time.sleep(90)
     while True:
-        try:
-            with app.app_context():
+        with app.app_context():
+            try:
                 crea_bozza_agente()
                 giro_pubblicazione()
-        except Exception as err:  # noqa: BLE001
-            print(f"SOCIAL: errore nel ciclo: {err}", flush=True)
-            try:
-                with app.app_context():
+            except Exception as err:  # noqa: BLE001
+                print(f"SOCIAL: errore nel ciclo: {err}", flush=True)
+                try:
                     db.session.rollback()
-            except Exception:  # noqa: BLE001
-                pass
+                except Exception:  # noqa: BLE001
+                    pass
+            finally:
+                db.session.remove()
         time.sleep(10 * 60)
 
 
