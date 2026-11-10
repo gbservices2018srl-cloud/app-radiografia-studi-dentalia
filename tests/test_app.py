@@ -967,6 +967,53 @@ class TestApp(unittest.TestCase):
             imp.soc_agente = False
             m.db.session.commit()
 
+    def test_42_studi_affiliati_cartina(self):
+        # automatico: firma del contratto -> lo studio entra nella rete con città e posizione
+        r = self.marco.post("/nuova", data={"studio": "Studio Rete Auto", "citta": "Cagliari", **risposte(3)})
+        vid = int(r.location.rstrip("/").rsplit("/", 1)[1])
+        affiliazione(self.marco, vid, cliente="Studio Rete Auto")
+        kid = firma_contratto(self.marco, vid)
+        with m.app.app_context():
+            s = m.StudioAffiliato.query.filter_by(contratto_id=kid).first()
+            self.assertIsNotNone(s)
+            self.assertEqual((s.nome, s.citta, s.origine), ("Studio Rete Auto", "Cagliari", "contratto"))
+            import affiliati
+            affiliati.posiziona(s)
+            m.db.session.commit()
+            sid_auto = s.id
+        # manuale
+        self.assertEqual(self.marco.get("/admin/studi").status_code, 403)
+        self.admin.post("/admin/studi", data={"azione": "aggiungi", "nome": "Studio Manuale Nascosto",
+                                             "citta": "Sassari", "provincia": "ss", "visibile": "1"})
+        with m.app.app_context():
+            s2 = m.StudioAffiliato.query.filter_by(nome="Studio Manuale Nascosto").first()
+            self.assertEqual((s2.origine, s2.provincia, s2.mostra_nome), ("manuale", "SS", False))
+            self.assertIsNotNone(s2.lat)
+            sid_man = s2.id
+        pagina = self.admin.get("/admin/studi").get_data(as_text=True)
+        self.assertIn("Studio Rete Auto", pagina)
+        self.assertIn("cartina-punto", pagina)
+        self.assertEqual(self.admin.get(f"/admin/studi/{sid_auto}").status_code, 200)
+        # pubblico: nome nascosto -> solo città; niente indirizzi
+        dati = m.app.test_client().get("/api/studi-affiliati.json", headers={"Origin": "https://www.dentaliagroup.it"})
+        self.assertEqual(dati.headers["Access-Control-Allow-Origin"], "https://www.dentaliagroup.it")
+        j = dati.get_json()
+        citta = {x["citta"]: x for x in j["studi"]}
+        self.assertEqual(citta["Sassari"]["nome"], None)
+        self.assertEqual(citta["Cagliari"]["nome"], "Studio Rete Auto")
+        self.assertNotIn("indirizzo", json.dumps(j))
+        # modifica: nascosto -> sparisce dal sito; coordinate a mano
+        self.admin.post(f"/admin/studi/{sid_man}", data={"azione": "salva", "nome": "Studio Manuale Nascosto",
+                                                        "citta": "Sassari", "lat": "40,7259", "lng": "8.5557"})
+        with m.app.app_context():
+            s2 = m.db.session.get(m.StudioAffiliato, sid_man)
+            self.assertEqual((s2.visibile, round(s2.lat, 4), s2.posizione_auto), (False, 40.7259, False))
+        nomi = [x["citta"] for x in m.app.test_client().get("/api/studi-affiliati.json").get_json()["studi"]]
+        self.assertNotIn("Sassari", nomi)
+        self.admin.post(f"/admin/studi/{sid_man}", data={"azione": "elimina"})
+        with m.app.app_context():
+            self.assertIsNone(m.db.session.get(m.StudioAffiliato, sid_man))
+
     def test_17_radiografie_vecchie_conservano_le_domande(self):
         with m.app.app_context():
             u = m.Utente.query.filter_by(email="marco@test.it").first()

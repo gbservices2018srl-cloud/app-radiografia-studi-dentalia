@@ -156,6 +156,13 @@ def registra_firma(k, firma, nome, modo, utente_id=None):
         c.modificato_il = datetime.utcnow()
         db.session.add(Attivita(contatto_id=c.id, utente_id=utente_id, tipo="contratto", esito="firmato",
                                 testo=f"Contratto {k.codice} firmato da {nome} ({'sul dispositivo' if modo == 'dispositivo' else 'dal link'}): studio affiliato"))
+    try:  # lo studio entra da solo nella rete (cartina del sito); le coordinate le cerca un thread dopo il salvataggio
+        import affiliati
+        with db.session.no_autoflush:
+            affiliati.studio_da_contratto(k, c)
+        affiliati.posiziona_mancanti_in_background(attesa=5)
+    except Exception as err:  # noqa: BLE001
+        print(f"STUDI: studio non aggiunto alla rete per {k.codice}: {err}", flush=True)
 
 
 def firma_valida(dato):

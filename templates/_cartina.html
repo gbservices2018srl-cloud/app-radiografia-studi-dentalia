@@ -1,0 +1,12 @@
+{# Cartina d'Italia con i punti degli studi. punti = [{id, nome, citta, xy, visibile}], sel = id evidenziato #}
+<svg class="cartina" viewBox="0 0 537 636" role="img" aria-label="Cartina degli studi affiliati">
+  <image href="{{ url_for('static', filename='mappa/italia.svg') }}" x="0" y="0" width="537" height="636"/>
+  {% for p in punti %}
+  <a href="{{ url_for('studio_affiliato', sid=p.id) }}">
+    <g class="cartina-punto {{ 'spento' if not p.visibile }} {{ 'sel' if sel == p.id }}" transform="translate({{ p.xy[0] }} {{ p.xy[1] }})">
+      <title>{{ p.nome }} · {{ p.citta or '' }}{{ ' (nascosto)' if not p.visibile }}</title>
+      <circle r="13" class="alone"/><circle r="6.5"/>
+    </g>
+  </a>
+  {% endfor %}
+</svg>

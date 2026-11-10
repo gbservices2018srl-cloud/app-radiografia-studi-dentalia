@@ -711,3 +711,19 @@ a.per-passo:hover { transform: translateY(-1px); }
 .soc-ped-testa h2 { margin: 0; }
 .soc-didascalia { white-space: pre-line; font-size: .85rem; color: var(--testo); margin: 6px 0 0; }
 @media (max-width: 760px) { .soc-fasi { grid-template-columns: 1fr 1fr; } }
+
+/* Studi affiliati e cartina */
+.studi-layout { display: grid; grid-template-columns: minmax(260px, 420px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 800px) { .studi-layout { grid-template-columns: 1fr; } }
+.cartina { width: 100%; height: auto; display: block; max-height: 560px; }
+.cartina-punto circle { fill: var(--oro); stroke: #fff; stroke-width: 2; }
+.cartina-punto .alone { fill: var(--oro); opacity: .28; stroke: none; }
+.cartina-punto.spento circle { fill: #9aa3ad; } .cartina-punto.spento .alone { opacity: 0; }
+.cartina-punto.sel .alone { opacity: .5; }
+.cartina a:hover .cartina-punto circle:not(.alone) { stroke: var(--primario); }
+.studi-lista { display: flex; flex-direction: column; gap: 6px; }
+.studio-riga { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 10px; color: var(--testo); text-decoration: none; }
+.studio-riga:hover { border-color: var(--oro); }
+.studio-riga > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.studio-riga.spento { opacity: .65; }
+.studio-ico { color: var(--oro-scuro); }

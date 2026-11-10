@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}{{ s.nome }} · Studi affiliati{% endblock %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>{{ ico('luogo', size=26) }} {{ s.nome }}</h1>
+  <div class="azioni-riga"><a class="btn sec-btn piccolo" href="{{ url_for('studi_affiliati') }}">← Tutti gli studi</a></div>
+</div>
+
+<div class="studi-layout">
+  <section class="card studi-mappa">
+    {% set punti = [dict(id=s.id, nome=s.nome, citta=s.citta, xy=xy, visibile=s.visibile)] if xy else [] %}
+    {% set sel = s.id %}{% include "_cartina.html" %}
+    {% if not xy %}<p class="avviso nl-err">{{ ico('x') }} Non ho trovato il punto: controlla l'indirizzo e premi «Ritrova sulla cartina», oppure scrivi latitudine e longitudine.</p>{% endif %}
+    <p class="meta">Sul sito si vedrà: <b>{{ s.nome if s.mostra_nome else '' }}{{ ' · ' if s.mostra_nome }}{{ s.citta or '—' }}</b>{% if not s.visibile %} — <b>nascosto</b>{% endif %}</p>
+  </section>
+
+  <form method="post" class="card">
+    <h2>{{ ico('modifica', size=20) }} Dati</h2>
+    <p class="meta">{% if s.contratto_id %}Entrato con il contratto firmato{% if s.contatto_id %} · <a href="{{ url_for('contatto_scheda', cid=s.contatto_id) }}">scheda cliente</a>{% endif %}{% else %}Aggiunto a mano{% endif %}{% if s.affiliato_il %} · affiliato dal {{ s.affiliato_il | ora_locale('%d/%m/%Y') }}{% endif %}.</p>
+    <div class="griglia">
+      <label>Nome dello studio<input name="nome" required maxlength="200" value="{{ s.nome or '' }}"></label>
+      <label>Indirizzo<input name="indirizzo" maxlength="200" value="{{ s.indirizzo or '' }}"></label>
+      <label>CAP<input name="cap" maxlength="10" value="{{ s.cap or '' }}"></label>
+      <label>Comune<input name="citta" required maxlength="200" value="{{ s.citta or '' }}"></label>
+      <label>Provincia<input name="provincia" maxlength="4" value="{{ s.provincia or '' }}"></label>
+    </div>
+    <label class="crm-spunta" style="margin-top:10px"><input type="checkbox" name="mostra_nome" value="1" {{ 'checked' if s.mostra_nome }}> <span>Mostra il nome sul sito (se tolto: solo la città)</span></label>
+    <label class="crm-spunta" style="margin-top:6px"><input type="checkbox" name="visibile" value="1" {{ 'checked' if s.visibile }}> <span>Visibile sulla cartina</span></label>
+    <details style="margin-top:10px"><summary class="meta">Posizione esatta (facoltativo)</summary>
+      <p class="meta">Se il punto non è giusto, copia le coordinate da Google Maps (tasto destro sul punto) e incollale qui.</p>
+      <div class="griglia">
+        <label>Latitudine<input name="lat" inputmode="decimal" value="{{ '%.5f' % s.lat if s.lat is not none else '' }}" placeholder="39.22380"></label>
+        <label>Longitudine<input name="lng" inputmode="decimal" value="{{ '%.5f' % s.lng if s.lng is not none else '' }}" placeholder="9.12170"></label>
+      </div>
+    </details>
+    <div class="azioni-riga" style="margin-top:12px">
+      <button class="btn oro" type="submit" name="azione" value="salva">{{ ico('ok') }} Salva</button>
+      <button class="btn sec-btn" type="submit" name="azione" value="riposiziona">{{ ico('luogo') }} Ritrova sulla cartina</button>
+    </div>
+  </form>
+</div>
+
+<form method="post" class="card" onsubmit="return confirm('Togliere «{{ s.nome }}» dalla rete e dalla cartina del sito?')">
+  <input type="hidden" name="azione" value="elimina">
+  <h2>{{ ico('cestino', size=20) }} Togli dalla rete</h2>
+  <p class="meta">Lo studio sparisce dall'elenco e dal sito. Contratto e scheda cliente restano come sono. Se vuoi solo nasconderlo, togli la spunta «Visibile sulla cartina».</p>
+  <button class="btn sec-btn" type="submit">{{ ico('cestino') }} Togli dalla rete</button>
+</form>
+{% endblock %}

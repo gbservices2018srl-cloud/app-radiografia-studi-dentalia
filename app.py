@@ -357,6 +357,27 @@ class SocialMedia(db.Model):
     creato_il = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class StudioAffiliato(db.Model):
+    """Studio della rete Dentalia, mostrato sulla cartina del sito. Entra da solo alla firma del contratto
+    (origine «contratto») o lo aggiunge l'admin (origine «manuale») da /admin/studi."""
+    id = db.Column(db.Integer, primary_key=True)
+    contatto_id = db.Column(db.Integer, index=True)
+    contratto_id = db.Column(db.Integer, index=True)
+    nome = db.Column(db.String(200), nullable=False)
+    indirizzo = db.Column(db.String(200))
+    cap = db.Column(db.String(10))
+    citta = db.Column(db.String(200))
+    provincia = db.Column(db.String(4))
+    lat = db.Column(db.Float)
+    lng = db.Column(db.Float)
+    posizione_auto = db.Column(db.Boolean, default=True)   # False = coordinate scritte a mano
+    mostra_nome = db.Column(db.Boolean, default=True)      # False = sul sito solo la città
+    visibile = db.Column(db.Boolean, default=True)         # False = non compare sulla cartina
+    origine = db.Column(db.String(20), default="manuale")  # contratto / manuale
+    affiliato_il = db.Column(db.DateTime, default=datetime.utcnow)
+    creato_il = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Questionario(db.Model):
     """Aree, domande e azioni della radiografia, modificabili da /admin/domande (riga unica id=1).
     Se la riga non esiste valgono quelle iniziali di questions.py."""
@@ -1602,6 +1623,7 @@ import newsletter  # noqa: E402,F401  (newsletter: consenso, invio con la casell
 import sequenza  # noqa: E402,F401  (funnel: sequenza email automatica dopo il consenso)
 import contratti  # noqa: E402,F401  (contratto di affiliazione: dati, firma col dito o via link, stampa)
 import social  # noqa: E402,F401  (/gestione: post social, agente ogni 3 giorni, pubblicazione Instagram/LinkedIn)
+import affiliati  # noqa: E402,F401  (studi affiliati: /admin/studi, cartina del sito, /api/studi-affiliati.json)
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_icone.html" import ico %}
+{% block title %}Studi affiliati{% endblock %}
+{% block content %}
+<div class="titolo-riga">
+  <h1>{{ ico('mappa', size=26) }} Studi affiliati</h1>
+  <div class="azioni-riga"><a class="btn sec-btn piccolo" href="{{ url_for('admin') }}">← Admin</a></div>
+</div>
+
+<section class="card nl-avviso">
+  <span class="nl-avviso-ico">{{ ico('luogo', size=28) }}</span>
+  <div>
+    <h2>La rete sul sito</h2>
+    <p>Gli studi di questo elenco compaiono sulla cartina della home di <a href="https://www.dentaliagroup.it" target="_blank" rel="noopener">dentaliagroup.it</a> (sezione «La rete Dentalia») con <b>nome e città</b>. Quando un cliente <b>firma il contratto di affiliazione</b> il suo studio entra qui da solo; puoi anche aggiungerne a mano. Sul sito non vanno mai indirizzo, telefono o altri dati.</p>
+    <p class="meta">Sulla cartina adesso: <b>{{ visibili }}</b> {{ 'studio' if visibili == 1 else 'studi' }}.{% if firmati_senza %} Ci sono {{ firmati_senza }} contratti firmati non ancora in elenco.{% endif %}</p>
+  </div>
+</section>
+
+<div class="studi-layout">
+  <section class="card studi-mappa">
+    {% set sel = none %}{% include "_cartina.html" %}
+    <p class="meta">Punto oro = visibile sul sito · punto grigio = nascosto. Tocca un punto per aprire lo studio.</p>
+  </section>
+
+  <section class="card">
+    <h2>{{ ico('studio', size=20) }} Elenco ({{ studi|length }})</h2>
+    {% if studi %}
+    <div class="studi-lista">
+      {% for s in studi %}
+      <a class="studio-riga {{ 'spento' if not s.visibile }}" href="{{ url_for('studio_affiliato', sid=s.id) }}">
+        <span class="studio-ico">{{ ico('luogo', size=18) }}</span>
+        <span><b>{{ s.nome }}</b><small class="meta">{{ s.citta or 'comune mancante' }}{% if s.provincia %} ({{ s.provincia }}){% endif %} · {{ 'dal contratto' if s.contratto_id else 'aggiunto a mano' }}{% if s.affiliato_il %} · {{ s.affiliato_il | ora_locale('%d/%m/%Y') }}{% endif %}</small></span>
+        <span class="studio-stato">
+          {% if s.lat is none %}<span class="pill critico">senza posizione</span>
+          {% elif not s.visibile %}<span class="pill medio">nascosto</span>
+          {% elif not s.mostra_nome %}<span class="pill neutro">solo città</span>
+          {% else %}<span class="pill buono">sulla cartina</span>{% endif %}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="meta">Ancora nessuno studio. Il primo arriverà da solo con il primo contratto firmato, oppure aggiungilo qui sotto.</p>
+    {% endif %}
+    {% if firmati_senza %}
+    <form method="post" style="margin-top:12px"><input type="hidden" name="azione" value="sincronizza"><button class="btn sec-btn piccolo">{{ ico('richiama') }} Recupera i contratti firmati</button></form>
+    {% endif %}
+  </section>
+</div>
+
+<form method="post" class="card">
+  <input type="hidden" name="azione" value="aggiungi">
+  <h2>{{ ico('piu', size=20) }} Aggiungi uno studio a mano</h2>
+  <p class="meta">Scrivi l'indirizzo: il punto sulla cartina lo trovo da solo.</p>
+  <div class="griglia">
+    <label>Nome dello studio *<input name="nome" required maxlength="200" placeholder="Es. Studio Dentistico Rossi"></label>
+    <label>Indirizzo<input name="indirizzo" maxlength="200" placeholder="Via Roma 10"></label>
+    <label>CAP<input name="cap" maxlength="10" inputmode="numeric"></label>
+    <label>Comune *<input name="citta" required maxlength="200" placeholder="Cagliari"></label>
+    <label>Provincia<input name="provincia" maxlength="4" placeholder="CA"></label>
+  </div>
+  <label class="crm-spunta" style="margin-top:10px"><input type="checkbox" name="mostra_nome" value="1" checked> <span>Mostra il nome dello studio sul sito (se tolto: solo la città)</span></label>
+  <label class="crm-spunta" style="margin-top:6px"><input type="checkbox" name="visibile" value="1" checked> <span>Visibile sulla cartina</span></label>
+  <button class="btn oro" type="submit" style="margin-top:12px">{{ ico('piu') }} Aggiungi alla rete</button>
+</form>
+{% endblock %}

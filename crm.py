@@ -442,6 +442,8 @@ def elimina_contatto_completo(c):
     Attivita.query.filter_by(contatto_id=c.id).delete()
     SequenzaInvio.query.filter_by(contatto_id=c.id).delete()
     NewsletterInvio.query.filter_by(contatto_id=c.id).delete()
+    from app import StudioAffiliato
+    StudioAffiliato.query.filter_by(contatto_id=c.id, origine="contratto").delete()
     db.session.delete(c)
     return tutto
 
