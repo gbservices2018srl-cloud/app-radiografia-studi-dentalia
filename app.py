@@ -1014,19 +1014,26 @@ def risultato(vid):
             "livello": etichetta, "classe": classe, "azioni": area["azioni"],
         })
     priorita = sorted(report, key=lambda r: r["punteggio"])
-    # Note interne per domanda: visibili solo qui (admin e autore), escluse dalla stampa/PDF del report
-    note_interne = []
+    # Risposte date domanda per domanda (+ note interne): solo a schermo per admin e autore, mai nella stampa/PDF
     note = json.loads(v.note_domande) if v.note_domande else {}
-    if note:
-        risposte = json.loads(v.risposte)
-        for area in aree_di(v):
-            righe = [{"testo": d["testo"], "voto": risposte.get(d["id"]), "nota": note[d["id"]]}
-                     for d in area["domande"] if note.get(d["id"])]
-            if righe:
-                note_interne.append({"nome": area["nome"], "righe": righe})
+    risposte = json.loads(v.risposte) if v.risposte else {}
+    etichette = dict(SCALE)
+    risposte_date = []
+    for area in aree_di(v):
+        righe = []
+        for d in area["domande"]:
+            try:
+                voto = int(risposte.get(d["id"])) if risposte.get(d["id"]) not in (None, "") else None
+            except (TypeError, ValueError):
+                voto = None
+            righe.append({"testo": d["testo"], "voto": voto, "etichetta": etichette.get(voto, "non risposta"),
+                          "nota": note.get(d["id"])})
+        risposte_date.append({"nome": area["nome"], "punteggio": json.loads(v.punteggi).get(area["id"], 0),
+                              "righe": righe})
+    note_interne = any(r["nota"] for a in risposte_date for r in a["righe"])
     return render_template(
         "risultato.html", v=v, report=report, priorita=priorita, media=media_di(punteggi),
-        note_interne=note_interne,
+        note_interne=note_interne, risposte_date=risposte_date,
         radar=radar_svg(report), commerciale=db.session.get(Utente, v.utente_id),
         affiliazione=affiliazione_di(v.id), affiliazione_attiva=affiliazione_attiva(v.id),
         contratto=contratto_di(getattr(affiliazione_di(v.id), "id", None)),

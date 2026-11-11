@@ -324,6 +324,13 @@ h1 .dq-ico { width: 26px; height: 26px; color: var(--oro); vertical-align: -4px;
 .nota-riga { padding: 8px 0; border-top: 1px solid var(--oro-bordo); }
 .nota-dom { margin: 0 0 4px; font-weight: 600; font-size: .92rem; }
 .nota-txt { margin: 0; white-space: pre-wrap; }
+.risp-area { border-top: 1px solid var(--oro-bordo); padding: 6px 0; }
+.risp-area summary { cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 8px 0; color: var(--primario); }
+.risp-area .nota-riga:first-of-type { border-top: 0; }
+.risp-voto { margin: 0; display: flex; align-items: center; gap: 8px; font-size: .92rem; }
+.risp-pallini { display: inline-flex; gap: 3px; }
+.risp-pallini i { width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 1px solid var(--oro); }
+.risp-pallini i.on { background: var(--oro); }
 @media print { .note-interne, .nota-domanda { display: none !important; } }
 
 /* ================= CRM ================= */

@@ -68,21 +68,25 @@
 <section class="card"><h2>Note del consulente</h2><p>{{ v.note }}</p></section>
 {% endif %}
 
-{% if note_interne %}
-<section class="card note-interne no-print">
-  <h2><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> Note interne sulle domande</h2>
-  <p class="meta">Visibili solo a te e all'amministratore. Non compaiono nella stampa né nel PDF del report da consegnare.</p>
-  {% for a in note_interne %}
-  <h3>{{ a.nome }}</h3>
-  {% for r in a.righe %}
-  <div class="nota-riga">
-    <p class="nota-dom">{{ r.testo }}{% if r.voto %} <span class="pill">voto {{ r.voto }}</span>{% endif %}</p>
-    <p class="nota-txt">{{ r.nota }}</p>
-  </div>
-  {% endfor %}
+<section class="card note-interne no-print" id="risposte">
+  <h2><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l1 2h3v14H5V6h3z"/><path d="M9 11l2 2 4-4M9 17h6"/></svg> Domande e risposte date</h2>
+  <p class="meta">Le risposte del questionario, una per una{{ ' con le note interne' if note_interne }}. Visibili solo a te e a chi ha fatto la radiografia: non compaiono nella stampa né nel PDF da consegnare. Scala: 1 = per nulla … 5 = completamente.</p>
+  {% for a in risposte_date %}
+  <details class="risp-area" {{ 'open' if loop.first }}>
+    <summary><b>{{ a.nome }}</b> <span class="pill">{{ a.punteggio }}/100</span></summary>
+    {% for r in a.righe %}
+    <div class="nota-riga risp-riga">
+      <p class="nota-dom">{{ r.testo }}</p>
+      <p class="risp-voto">
+        <span class="risp-pallini" aria-hidden="true">{% for i in range(1, 6) %}<i class="{{ 'on' if r.voto and i <= r.voto }}"></i>{% endfor %}</span>
+        <b>{{ r.voto if r.voto else '—' }}</b> {{ r.etichetta }}
+      </p>
+      {% if r.nota %}<p class="nota-txt"><b>Nota:</b> {{ r.nota }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </details>
   {% endfor %}
 </section>
-{% endif %}
 
 <p class="firma-brand">Report realizzato da <img src="{{ url_for('static', filename='brand/logo-scritta.png') }}" alt="Dentalia"> · Studi indipendenti. Più forti. Insieme.</p>
 

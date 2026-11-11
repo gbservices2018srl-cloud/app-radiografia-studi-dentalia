@@ -302,6 +302,8 @@ class TestApp(unittest.TestCase):
         pagina = self.marco.get(r.location).get_data(as_text=True)
         self.assertIn("Il titolare era scettico sui richiami", pagina)
         self.assertIn("note-interne no-print", pagina)
+        self.assertIn("Domande e risposte date", pagina)
+        self.assertIn(aree[1]["domande"][0]["testo"], pagina)  # anche le domande senza nota, con la risposta
         self.assertIn("Il titolare era scettico", self.admin.get(r.location).get_data(as_text=True))
         self.assertEqual(self.laura.get(r.location).status_code, 403)
 
